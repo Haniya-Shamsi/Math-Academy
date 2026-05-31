@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MathAcademy</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; width: 100%; }
+    body { background: #0d0d14; font-family: 'DM Sans', system-ui, sans-serif; overflow: hidden; }
+    input, button, textarea { font-family: inherit; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #0d0d14; }
+    ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect, useRef } = React;
+
+    // window.storage polyfill using localStorage for GitHub Pages
+    window.storage = {
+      get: async (key) => {
+        try { const v = localStorage.getItem('ma_' + key); return v ? { value: v } : null; } catch(e) { return null; }
+      },
+      set: async (key, value) => {
+        try { localStorage.setItem('ma_' + key, value); return { value }; } catch(e) { return null; }
+      },
+      delete: async (key) => {
+        try { localStorage.removeItem('ma_' + key); return { deleted: true }; } catch(e) { return null; }
+      }
+    };
+
+
+const CURRICULUM = [
+  { unit:"Arithmetic",color:"#e85d04",icon:"＋",pixelArt:["00011000","00011000","11111111","11111111","00011000","00011000","00000000","00000000"],topics:[{id:"addition",title:"Addition & Subtraction",grade:"Grade 1–3",desc:"Building blocks of all math"},{id:"multiplication",title:"Multiplication",grade:"Grade 3–4",desc:"Repeated addition made fast"},{id:"division",title:"Division",grade:"Grade 3–5",desc:"Splitting into equal groups"}]},
+  { unit:"Fractions",color:"#7b2d8b",icon:"½",pixelArt:["11100000","11100000","00000000","11111110","11111110","00000000","00011100","00011100"],topics:[{id:"intro-fractions",title:"What Are Fractions?",grade:"Grade 3–4",desc:"Parts of a whole"},{id:"adding-fractions",title:"Adding Fractions",grade:"Grade 4–5",desc:"Common denominators"},{id:"multiplying-fractions",title:"Multiplying Fractions",grade:"Grade 5–6",desc:"Multiply across"},{id:"dividing-fractions",title:"Dividing Fractions",grade:"Grade 6",desc:"Flip and multiply"},{id:"mixed-numbers",title:"Mixed Numbers",grade:"Grade 5–6",desc:"Whole numbers and fractions together"},{id:"comparing-fractions",title:"Comparing & Ordering Fractions",grade:"Grade 4–5",desc:"Which fraction is bigger?"}]},
+  { unit:"Decimals & Percentages",color:"#00b4d8",icon:".",pixelArt:["00000000","01100110","01100110","00000000","11111111","00011000","00011000","00000000"],topics:[{id:"intro-decimals",title:"Introduction to Decimals",grade:"Grade 4–5",desc:"Numbers between whole numbers"},{id:"decimal-operations",title:"Decimal Operations",grade:"Grade 5–6",desc:"Add, subtract, multiply, divide decimals"},{id:"percent",title:"Percentages",grade:"Grade 6–7",desc:"Parts per hundred"},{id:"percent-change",title:"Percentage Change",grade:"Grade 7–8",desc:"Increase, decrease and error"},{id:"converting",title:"Converting: Fractions, Decimals, %",grade:"Grade 6–7",desc:"Switching between forms"},{id:"ratio-proportion",title:"Ratios & Proportions",grade:"Grade 6–7",desc:"Comparing quantities"}]},
+  { unit:"Algebra",color:"#2d6a4f",icon:"x",pixelArt:["11000011","01100110","00111100","00111100","01100110","11000011","00000000","00000000"],topics:[{id:"variables",title:"Variables & Expressions",grade:"Grade 6–7",desc:"Letters standing in for numbers"},{id:"equations",title:"Solving Equations",grade:"Grade 7–8",desc:"Find the unknown"},{id:"inequalities",title:"Inequalities",grade:"Grade 7–8",desc:"Greater than, less than"},{id:"linear-functions",title:"Linear Functions",grade:"Grade 8–9",desc:"Straight line graphs"},{id:"quadratics",title:"Quadratic Equations",grade:"Grade 9–10",desc:"Parabolas and the quadratic formula"},{id:"polynomials",title:"Polynomials",grade:"Grade 10–11",desc:"Expressions with many terms"},{id:"logarithms",title:"Logarithms",grade:"Grade 11–12",desc:"The inverse of exponentials"}]},
+  { unit:"Geometry",color:"#c77dff",icon:"△",pixelArt:["00011000","00111100","00111100","01111110","01111110","11111111","11111111","00000000"],topics:[{id:"shapes",title:"Shapes & Properties",grade:"Grade 3–5",desc:"Triangles, squares, and more"},{id:"area-perimeter",title:"Area & Perimeter",grade:"Grade 4–6",desc:"Measuring space and edges"},{id:"pythagorean",title:"Pythagorean Theorem",grade:"Grade 8–9",desc:"a² + b² = c²"},{id:"circles",title:"Circles & Pi",grade:"Grade 7–8",desc:"Circumference, area and pi"},{id:"3d-shapes",title:"3D Shapes & Volume",grade:"Grade 8–9",desc:"Spheres, cones, cylinders"},{id:"coordinate-geometry",title:"Coordinate Geometry",grade:"Grade 9–10",desc:"Geometry meets algebra"}]},
+  { unit:"Trigonometry",color:"#f4a261",icon:"θ",pixelArt:["00111100","01000010","10000001","10011001","10011001","10000001","01000010","00111100"],topics:[{id:"trig-intro",title:"Intro to Trigonometry",grade:"Grade 10",desc:"Sine, cosine and tangent"},{id:"trig-ratios",title:"Trig Ratios & SOHCAHTOA",grade:"Grade 10",desc:"Finding sides and angles"},{id:"unit-circle",title:"The Unit Circle",grade:"Grade 11",desc:"Angles in all four quadrants"},{id:"trig-identities",title:"Trig Identities",grade:"Grade 11–12",desc:"Powerful equation shortcuts"},{id:"trig-equations",title:"Solving Trig Equations",grade:"Grade 11–12",desc:"Finding angles from ratios"},{id:"sine-cosine-rules",title:"Sine & Cosine Rules",grade:"Grade 11",desc:"Any triangle, not just right"}]},
+  { unit:"Calculus",color:"#e63946",icon:"∫",pixelArt:["00111100","01100000","01000000","01000000","01000000","01000000","01100000","00111100"],topics:[{id:"limits",title:"Limits",grade:"University 1st year",desc:"Approaching but never reaching"},{id:"derivatives-intro",title:"Introduction to Derivatives",grade:"University 1st year",desc:"The rate of change"},{id:"differentiation-rules",title:"Differentiation Rules",grade:"University 1st year",desc:"Power, product, chain rules"},{id:"applications-derivatives",title:"Applications of Derivatives",grade:"University 1st year",desc:"Max, min, and curve sketching"},{id:"integrals-intro",title:"Introduction to Integration",grade:"University 1st year",desc:"The reverse of differentiation"},{id:"integration-techniques",title:"Integration Techniques",grade:"University 1st year",desc:"Substitution and by parts"},{id:"fundamental-theorem",title:"Fundamental Theorem of Calculus",grade:"University 1st year",desc:"Linking derivatives and integrals"}]},
+  { unit:"Statistics & Probability",color:"#06d6a0",icon:"σ",pixelArt:["00111100","01000000","01000000","00111100","00000110","00000110","01000110","00111100"],topics:[{id:"descriptive-stats",title:"Descriptive Statistics",grade:"Grade 9–10",desc:"Mean, median, mode, range"},{id:"probability-intro",title:"Introduction to Probability",grade:"Grade 9–10",desc:"Likelihood of events"},{id:"probability-rules",title:"Probability Rules",grade:"Grade 10–11",desc:"AND, OR, conditional probability"},{id:"distributions",title:"Probability Distributions",grade:"University 1st year",desc:"Normal, binomial distributions"},{id:"hypothesis-testing",title:"Hypothesis Testing",grade:"University 1st year",desc:"Testing claims with data"},{id:"regression",title:"Correlation & Regression",grade:"University 1st year",desc:"Relationships between variables"}]},
+  { unit:"Number Theory",color:"#ffd166",icon:"ℕ",pixelArt:["11000011","11000011","10100101","10011001","10000001","10000001","10000001","11000011"],topics:[{id:"primes",title:"Prime Numbers",grade:"Grade 6–8",desc:"Numbers divisible only by 1 and themselves"},{id:"factors-multiples",title:"Factors & Multiples",grade:"Grade 6–7",desc:"GCD, LCM and factor trees"},{id:"modular-arithmetic",title:"Modular Arithmetic",grade:"Grade 9–University",desc:"Clock arithmetic and remainders"},{id:"number-bases",title:"Number Bases",grade:"Grade 8–University",desc:"Binary, octal, hexadecimal"},{id:"proof-by-induction",title:"Proof by Induction",grade:"University 1st year",desc:"Proving statements for all integers"},{id:"cryptography-basics",title:"Cryptography Basics",grade:"University 1st year",desc:"Math behind secret codes"}]},
+  { unit:"Linear Algebra",color:"#f72585",icon:"M",pixelArt:["11111110","11000010","11000010","11111110","11000010","11000010","11111110","00000000"],topics:[{id:"matrices-intro",title:"Introduction to Matrices",grade:"Grade 10–11",desc:"Grids of numbers with powerful rules"},{id:"matrix-operations",title:"Matrix Addition & Multiplication",grade:"Grade 10–11",desc:"How to combine matrices"},{id:"determinant",title:"The Determinant",grade:"Grade 11–12",desc:"A single number that describes a matrix"},{id:"inverse-matrix",title:"Inverse of a Matrix",grade:"Grade 11–12",desc:"Undoing a matrix transformation"},{id:"inverse-functions",title:"Inverse Functions",grade:"Grade 10–11",desc:"Reversing what a function does"},{id:"eigenvalues",title:"Eigenvalues & Eigenvectors",grade:"University 1st year",desc:"Special vectors that don't rotate"},{id:"vector-spaces",title:"Vector Spaces",grade:"University 1st year",desc:"The abstract foundation of linear algebra"}]},
+
+];
+
+async function callClaude(messages, system) {
+  try {
+    const body = { model:"claude-sonnet-4-20250514", max_tokens:2000, messages };
+    if (system) body.system = system;
+    const res = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+    if (!res.ok) throw new Error("API error " + res.status);
+    const data = await res.json();
+    return data.content?.map(b => b.text||"").join("") || "";
+  } catch(e) { console.error("Claude API error:",e); throw e; }
+}
+
+function speakText(text, onEnd) {
+  if (!window.speechSynthesis) { onEnd && onEnd(); return; }
+  window.speechSynthesis.cancel();
+  const clean = text.replace(/[*_#`~]/g,"").replace(/
++/g," ").trim();
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.rate=0.88; utter.pitch=1.08; utter.volume=1;
+  if (onEnd) utter.onend = onEnd;
+  utter.onerror = () => onEnd && onEnd();
+  function trySpeak() {
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      const pref = voices.find(v=>/samantha|karen|victoria|moira|zira/i.test(v.name)) || voices.find(v=>/en.US|en_US/i.test(v.lang)&&/female/i.test(v.name)) || voices.find(v=>/en.US|en_US/i.test(v.lang)) || voices[0];
+      if (pref) utter.voice = pref;
+      window.speechSynthesis.speak(utter);
+    } else { window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged=null; trySpeak(); }; }
+  }
+  trySpeak();
+}
+
+function PixelCanvas({ pattern, color, size=8, animated=false }) {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => { if (!animated) return; const id=setInterval(()=>setFrame(f=>f+1),160); return ()=>clearInterval(id); }, [animated]);
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:`repeat(8,${size}px)`, gap:1 }}>
+      {pattern.map((row,r) => row.split("").map((cell,c) => {
+        const lit=cell==="1", glow=animated&&lit&&((r+c+frame)%5===0);
+        return <div key={r+"-"+c} style={{ width:size, height:size, background:lit?(glow?"#fff":color):"transparent", borderRadius:1, transition:"background 0.1s", boxShadow:glow?"0 0 4px "+color:"none" }} />;
+      }))}
+    </div>
+  );
+}
+
+function drawBlackboard(canvas, slide, idx, drawProgress, tick, accentColor, topicId) {
+  if (!canvas||!slide||typeof slide!=="object") return;
+  const ctx=canvas.getContext("2d"), W=canvas.width, H=canvas.height, p=drawProgress/100;
+  const ss={title:"",content:"",hint:"",narration:"",...slide};
+  ctx.fillStyle="#0f1a0f"; ctx.fillRect(0,0,W,H);
+  for(let i=0;i<60;i++){ctx.fillStyle="rgba(255,255,255,"+(Math.random()*0.015)+")";ctx.fillRect(Math.random()*W,Math.random()*H,Math.random()*3+1,1);}
+
+  function chalkText(text,x,y,sz,col,alpha){
+    col=col||"#f5f0e8"; alpha=alpha===undefined?1:alpha;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.font=sz+"px 'Segoe UI',sans-serif";
+    ctx.fillStyle="rgba(245,240,232,"+(alpha*0.3)+")"; ctx.fillText(text,x+0.5,y+0.5);
+    ctx.fillStyle="rgba(245,240,232,"+alpha+")"; ctx.fillText(text,x,y); ctx.restore();
+  }
+  function chalkLine(x1,y1,x2,y2,w,col){
+    w=w||2; col=col||"rgba(245,240,232,0.85)";
+    ctx.save(); ctx.globalAlpha=0.25; ctx.strokeStyle="#fff"; ctx.lineWidth=w+1; ctx.lineCap="round";
+    ctx.beginPath(); ctx.moveTo(x1+0.5,y1+0.5); ctx.lineTo(x2+0.5,y2+0.5); ctx.stroke();
+    ctx.globalAlpha=1; ctx.strokeStyle=col; ctx.lineWidth=w;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.restore();
+  }
+  function partialLine(x1,y1,x2,y2,prog,w,col){
+    if(prog>0) chalkLine(x1,y1,x1+(x2-x1)*prog,y1+(y2-y1)*prog,w,col);
+  }
+  function partialCircle(cx,cy,r,prog,w,col){
+    if(prog<=0)return; w=w||2.5; col=col||"rgba(245,240,232,0.85)";
+    ctx.save(); ctx.globalAlpha=0.25; ctx.strokeStyle="#fff"; ctx.lineWidth=w+1; ctx.lineCap="round";
+    ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*prog); ctx.stroke();
+    ctx.globalAlpha=1; ctx.strokeStyle=col; ctx.lineWidth=w;
+    ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*prog); ctx.stroke(); ctx.restore();
+  }
+  function fadeText(text,x,y,sz,thresh,col,align){
+    if(p<thresh)return; const alpha=Math.min(1,(p-thresh)/0.08);
+    ctx.save(); ctx.textAlign=align||"left"; chalkText(text,x,y,sz,col||"#f5f0e8",alpha); ctx.restore();
+  }
+  const ac=accentColor;
+  ctx.save(); ctx.globalAlpha=Math.min(1,p/0.12); ctx.font="bold 22px sans-serif"; ctx.fillStyle=ac;
+  ctx.fillText(ss.title||"",40,44);
+  if(p>0.05){const tw=ctx.measureText(ss.title||"").width; partialLine(40,50,40+tw,50,Math.min(1,(p-0.05)/0.1),1.5,ac+"cc");}
+  ctx.restore();
+  const s=idx;
+
+  function drawAxes(ox,oy,len,vlen){ox=ox||60;oy=oy||290;len=len||480;vlen=vlen||210;partialLine(ox,oy,ox,oy-vlen*Math.min(1,p/0.18),Math.min(1,p/0.18),2);partialLine(ox,oy,ox+len*Math.min(1,p/0.18),oy,Math.min(1,p/0.18),2);if(p>0.16){fadeText("y",ox-16,oy-vlen+10,13,0.16,"#aaa","center");fadeText("x",ox+len+8,oy+4,13,0.16,"#aaa");}}
+  function contentBullets(){const sents=(ss.content||"").split(". ").filter(Boolean);sents.slice(0,4).forEach((s2,i)=>fadeText("• "+s2.trim()+(s2.endsWith(".")?"":"."),48,120+i*42,14,0.10+i*0.18,"#e8e4d8"));if(ss.hint)fadeText("💡 "+ss.hint,40,H-28,12,0.82,"#888");}
+  function mistakeBox(){fadeText("⚠️  Common Mistake",40,H-68,14,0.72,"#f4a261");if(ss.hint){const a=Math.min(1,(p-0.76)/0.14);ctx.save();ctx.globalAlpha=Math.max(0,a);ctx.strokeStyle="#f4a26166";ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.strokeRect(32,H-58,W-64,40);ctx.setLineDash([]);ctx.restore();fadeText(ss.hint,44,H-32,12,0.80,"#f4a261aa");}}
+  function drawMat(mat,ox,oy,lbl,hilite,mc){const cw=52,ch=40;fadeText(lbl||"",ox+(mat[0].length*cw)/2,oy-14,14,0.04,mc||ac,"center");mat.forEach((row,r)=>row.forEach((v,c)=>{const thresh=0.08+r*0.14+c*0.07;if(p>thresh){const a=Math.min(1,(p-thresh)/0.10);ctx.save();ctx.globalAlpha=a;ctx.fillStyle=hilite?ac+"33":"rgba(245,240,232,0.05)";ctx.fillRect(ox+c*cw,oy+r*ch,cw,ch);ctx.strokeStyle="rgba(245,240,232,0.4)";ctx.lineWidth=1;ctx.strokeRect(ox+c*cw,oy+r*ch,cw,ch);chalkText(String(v),ox+c*cw+cw/2-6,oy+r*ch+ch/2+7,18,"#f5f0e8");ctx.restore();}}));if(p>0.5){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.7)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox-8,oy);ctx.lineTo(ox-14,oy);ctx.lineTo(ox-14,oy+mat.length*ch);ctx.lineTo(ox-8,oy+mat.length*ch);ctx.stroke();ctx.beginPath();ctx.moveTo(ox+mat[0].length*cw+8,oy);ctx.lineTo(ox+mat[0].length*cw+14,oy);ctx.lineTo(ox+mat[0].length*cw+14,oy+mat.length*ch);ctx.lineTo(ox+mat[0].length*cw+8,oy+mat.length*ch);ctx.stroke();ctx.restore();}}
+
+  if(topicId==="addition"){
+    if(s===0){
+      const nlY=150;partialLine(40,nlY,570,nlY,Math.min(1,p/0.15),2.5);
+      for(let n=-5;n<=5;n++){const x=305+n*50,thresh=0.15+((n+5)/10)*0.35;if(p>thresh){partialLine(x,nlY-7,x,nlY+7,Math.min(1,(p-thresh)/0.05),1.5);ctx.save();ctx.textAlign="center";ctx.globalAlpha=Math.min(1,(p-thresh)/0.08);const nc=n===0?"#f5f0e8":(n>0?"#7ec8e3":"#f4a261");chalkText(String(n),x,nlY+22,13,nc);ctx.restore();}}
+      fadeText("zero",305,nlY-20,11,0.44,"#888","center");
+      if(p>0.6){for(let i=0;i<5;i++){const thresh=0.6+i*0.06,cx=155+i*50,cy=nlY-30-Math.abs(Math.sin(Math.PI*i/4))*28;if(p>thresh){ctx.save();ctx.globalAlpha=Math.min(1,(p-thresh)/0.08);ctx.beginPath();ctx.arc(cx,cy,9,0,Math.PI*2);ctx.fillStyle=i<3?ac+"99":"#7ec8e388";ctx.fill();ctx.restore();}}}
+      fadeText("3 + 2 = 5",305,nlY+58,22,0.88,"#f5f0e8","center");
+    } else if(s===1){
+      fadeText("Column Addition:  47 + 38",W/2,78,18,0.04,ac,"center");
+      fadeText("  4  7",W/2,130,36,0.12,"#f5f0e8","center");fadeText("+ 3  8",W/2,172,36,0.22,"#f5f0e8","center");
+      partialLine(190,185,430,185,Math.min(1,(p>0.30?(p-0.30)/0.10:0)),2,"rgba(245,240,232,0.7)");
+      fadeText("7+8=15 → write 5, carry 1",60,218,14,0.40,"#aaa");fadeText("1",350,116,18,0.48,"#f4a261","center");
+      fadeText("4+3+1=8",60,248,14,0.58,"#aaa");fadeText("  8  5",W/2,295,38,0.70,"#7ec8e3","center");
+      partialLine(190,310,430,310,Math.min(1,(p>0.74?(p-0.74)/0.10:0)),1.5,"#7ec8e3aa");
+      fadeText("✓  answer: 85",W/2,350,17,0.82,"#4ade4a","center");
+    } else if(s===2){
+      const nlY=175;partialLine(40,nlY,570,nlY,Math.min(1,p/0.12),2.5);
+      for(let n=0;n<=12;n++){const x=58+n*38,thresh=0.12+n*0.04;if(p>thresh){partialLine(x,nlY-6,x,nlY+6,Math.min(1,(p-thresh)/0.04),1.5);ctx.save();ctx.textAlign="center";ctx.globalAlpha=Math.min(1,(p-thresh)/0.06);const nc=n===12?"#7ec8e3":(n===7?ac:"#f5f0e8");chalkText(String(n),x,nlY+20,12,nc);ctx.restore();}}
+      if(p>0.68){ctx.save();ctx.strokeStyle=ac;ctx.lineWidth=2;ctx.globalAlpha=Math.min(1,(p-0.68)/0.18);ctx.beginPath();ctx.arc(342,nlY,95,-Math.PI*0.05,-Math.PI,true);ctx.stroke();ctx.restore();fadeText("− 5",342,nlY-105,18,0.76,ac,"center");}
+      fadeText("12 − 5 = 7",W/2,nlY+65,24,0.88,"#f5f0e8","center");fadeText("💡 Subtraction = jumping left on the number line",40,H-25,12,0.92,"#888");
+    } else if(s===3){
+      fadeText("Borrowing:  52 − 37",40,85,18,0.05,ac);fadeText("   5  2",200,140,36,0.12,"#f5f0e8","center");fadeText("−  3  7",200,182,36,0.22,"#f5f0e8","center");
+      partialLine(80,196,350,196,Math.min(1,(p>0.28?(p-0.28)/0.1:0)),2,"rgba(245,240,232,0.7)");
+      fadeText("Cannot do 2 minus 7, so borrow!",40,222,14,0.38,"#f4a261");fadeText("5→4, 2→12",40,248,14,0.50,"#f4a261");
+      fadeText("12−7=5",40,282,16,0.60,"#7ec8e3");fadeText("4−3=1",40,308,16,0.70,"#7ec8e3");fadeText("Answer: 15  ✓",200,352,24,0.80,"#4ade4a","center");
+    } else {fadeText("Real Life Uses:",40,90,18,0.05,ac);["→ Counting change","→ Shopping totals","→ Tracking scores","→ Measuring distance"].forEach((t,i)=>fadeText(t,50,135+i*44,15,0.12+i*0.18,"#f5f0e8"));mistakeBox();}
+  }
+  else if(topicId==="multiplication"){
+    if(s===0){
+      const grps=Math.min(6,Math.floor(p*8)+1),each=3;
+      fadeText(grps+" groups of "+each+" = "+grps*each,W/2,72,18,0.04,ac,"center");
+      for(let g=0;g<grps;g++){const gx=55+g*82;if(p>(g/6)*0.45){const a=Math.min(1,(p-(g/6)*0.45)/0.14);ctx.save();ctx.globalAlpha=a;for(let d=0;d<each;d++){ctx.beginPath();ctx.arc(gx+d*22,165,9,0,Math.PI*2);ctx.fillStyle=ac+"88";ctx.fill();ctx.strokeStyle=ac;ctx.lineWidth=1.5;ctx.stroke();}ctx.strokeStyle=ac+"44";ctx.lineWidth=1;ctx.strokeRect(gx-12,144,each*22+6,40);ctx.restore();}}
+      fadeText("6×3 means 3+3+3+3+3+3 = "+6*3,W/2,265,15,0.78,"#aaa","center");
+    } else if(s===1){
+      fadeText("Times Table",W/2,68,18,0.04,ac,"center");
+      for(let r=1;r<=5;r++)for(let c=1;c<=5;c++){const thresh=0.08+(r-1)*0.10+(c-1)*0.03;if(p>thresh){const a=Math.min(1,(p-thresh)/0.08),x=80+c*90,y=98+r*40,lit=r===3&&c===4;ctx.save();ctx.globalAlpha=a;ctx.textAlign="center";if(lit){ctx.fillStyle=ac+"33";ctx.fillRect(x-32,y-20,64,30);}const tc=lit?"#4ade4a":"#ccc";const ts=lit?16:13;chalkText(r+"×"+c+"="+r*c,x,y,ts,tc);ctx.restore();}}
+      fadeText("Tip: 3x4 = 4x3, order does not matter",40,H-28,12,0.88,"#888");
+    } else if(s===2){
+      fadeText("23 × 4 = ?",W/2,72,22,0.05,ac,"center");fadeText("   2  3",W/2,122,36,0.12,"#f5f0e8","center");fadeText("×     4",W/2,162,36,0.20,"#f5f0e8","center");
+      partialLine(120,176,400,176,Math.min(1,(p>0.26?(p-0.26)/0.10:0)),2,"rgba(245,240,232,0.7)");
+      fadeText("3×4=12 → write 2, carry 1",50,205,14,0.38,"#aaa");fadeText("1",330,110,16,0.45,"#f4a261","center");fadeText("2×4=8, plus 1 carried = 9",50,235,14,0.56,"#aaa");
+      fadeText("  9  2",W/2,285,40,0.68,"#7ec8e3","center");fadeText("Answer: 92  ✓",W/2,335,17,0.82,"#4ade4a","center");
+    } else if(s===3){
+      fadeText("The Nines Pattern",40,80,18,0.04,ac);
+      for(let i=1;i<=9;i++){const v=i*9,thresh=0.06+i*0.08,sum=Math.floor(v/10)+(v%10);fadeText("9 × "+i+" = "+v,55+Math.floor((i-1)/5)*220,112+(i%5)*42,15,thresh,"#f5f0e8");if(p>thresh+0.04)fadeText("("+Math.floor(v/10)+"+"+v%10+"="+sum+")",55+Math.floor((i-1)/5)*220+140,112+(i%5)*42,11,thresh+0.04,ac);}
+      fadeText("💡 Digits always add to 9!",40,H-25,12,0.90,"#7ec8e3");
+    } else {fadeText("Real Life: area, pricing, recipes",40,90,16,0.05,ac);contentBullets();mistakeBox();}
+  }
+  else if(topicId==="division"){
+    if(s===0){
+      const total=12,grps=Math.min(4,Math.floor(p*5)+1),each=Math.floor(total/grps);
+      fadeText(total+" ÷ "+grps+" = "+each+" in each group",W/2,72,17,0.04,ac,"center");
+      for(let g=0;g<grps;g++){const gx=55+g*((W-70)/grps);if(p>(g/4)*0.40){ctx.save();ctx.globalAlpha=Math.min(1,(p-(g/4)*0.40)/0.14);ctx.strokeStyle=ac+"66";ctx.lineWidth=1.5;ctx.strokeRect(gx,110,((W-70)/grps)-8,100);for(let d=0;d<each;d++){ctx.beginPath();ctx.arc(gx+12+d*22,162,8,0,Math.PI*2);ctx.fillStyle=ac+"77";ctx.fill();ctx.strokeStyle=ac;ctx.lineWidth=1;ctx.stroke();}ctx.restore();}}
+      fadeText("Split equally into groups",W/2,262,14,0.75,"#aaa","center");
+    } else if(s===1){
+      fadeText("Long Division: 84 ÷ 7",40,80,18,0.05,ac);
+      partialLine(115,108,115,310,Math.min(1,(p>0.08?(p-0.08)/0.12:0)),2);partialLine(115,118,340,118,Math.min(1,(p>0.18?(p-0.18)/0.10:0)),2);
+      fadeText("84",78,118,28,0.28,"#f5f0e8","center");fadeText("7",98,118,28,0.05,"#f5f0e8");fadeText("12",228,112,28,0.40,ac,"center");
+      fadeText("7 into 8 → 1 time",130,155,14,0.48,"#aaa");fadeText("8−7=1 remainder",130,178,14,0.56,"#aaa");fadeText("bring down 4 → 14",130,201,14,0.64,"#aaa");fadeText("14÷7=2",130,224,14,0.72,"#aaa");
+      fadeText("84 ÷ 7 = 12  ✓",W/2,278,20,0.82,"#4ade4a","center");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="intro-fractions"){
+    if(s===0){
+      const slices=4,cx=200,cy=195,r=115;partialCircle(cx,cy,r,Math.min(1,p/0.20),3,"rgba(245,240,232,0.9)");
+      for(let i=0;i<slices;i++){const thresh=0.20+i*0.14;if(p>thresh){const a=i/slices*Math.PI*2-Math.PI/2;partialLine(cx,cy,cx+r*Math.cos(a),cy+r*Math.sin(a),Math.min(1,(p-thresh)/0.10),2,"rgba(245,240,232,0.7)");}}
+      if(p>0.78){ctx.save();ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2);ctx.closePath();ctx.fillStyle=ac+"66";ctx.fill();ctx.restore();}
+      fadeText("1",cx-6,cy-r/2,36,0.82,ac,"center");partialLine(cx-28,cy-r/2+8,cx+28,cy-r/2+8,Math.min(1,(p>0.86?(p-0.86)/0.10:0)),2,ac);fadeText("4",cx-6,cy-r/2+30,36,0.90,ac,"center");
+      fadeText("numerator",360,155,13,0.82,"#7ec8e3");fadeText("denominator",360,188,13,0.88,"#f4a261");fadeText("💡 All slices must be equal!",40,H-25,12,0.92,"#888");
+    } else if(s===1){
+      const parts=5,bw=480,bh=58,ox=60,oy=130;
+      partialLine(ox,oy,ox+bw*Math.min(1,p/0.18),oy,Math.min(1,p/0.18),2);partialLine(ox,oy+bh,ox+bw*Math.min(1,(p>0.16?(p-0.16)/0.18:0)),oy+bh,Math.min(1,(p>0.16?(p-0.16)/0.18:0)),2);
+      partialLine(ox,oy,ox,oy+bh*Math.min(1,(p>0.32?(p-0.32)/0.10:0)),Math.min(1,(p>0.32?(p-0.32)/0.10:0)),2);
+      for(let i=1;i<parts;i++){const x=ox+i*(bw/parts),thresh=0.42+i*0.06;partialLine(x,oy,x,oy+bh,Math.min(1,(p>thresh?(p-thresh)/0.08:0)),1.5,"rgba(245,240,232,0.45)");}
+      partialLine(ox+bw,oy,ox+bw,oy+bh*Math.min(1,(p>0.78?(p-0.78)/0.10:0)),Math.min(1,(p>0.78?(p-0.78)/0.10:0)),2);
+      const lit=Math.min(parts,1+Math.floor((p-0.5)*parts*1.4));if(p>0.5){for(let i=0;i<Math.max(0,lit);i++){ctx.save();ctx.fillStyle=ac+"55";ctx.fillRect(ox+i*(bw/parts)+1,oy+1,bw/parts-2,bh-2);ctx.restore();}}
+      fadeText(Math.max(0,lit)+" / "+parts,W/2,228,22,0.55,ac,"center");fadeText("💡 All parts must be equal size",40,H-25,12,0.88,"#888");
+    } else if(s===2){
+      fadeText("Which is bigger?",W/2,72,18,0.04,ac,"center");const bw=220,bh=44,oy=118;
+      if(p>0.10){ctx.save();ctx.fillStyle=ac+"44";ctx.fillRect(60,oy,bw/2*Math.min(1,(p-0.10)/0.20),bh);ctx.restore();}if(p>0.08)ctx.strokeRect(60,oy,bw,bh);
+      fadeText("1/2",170,oy+bh+20,18,0.32,ac,"center");
+      if(p>0.38){ctx.save();ctx.fillStyle="#7ec8e344";ctx.fillRect(60,oy+88,bw/4*Math.min(1,(p-0.38)/0.18),bh);ctx.strokeStyle="rgba(245,240,232,0.55)";ctx.lineWidth=1.5;ctx.strokeRect(60,oy+88,bw,bh);for(let i=1;i<4;i++)partialLine(60+i*bw/4,oy+88,60+i*bw/4,oy+88+bh,Math.min(1,(p-0.45)/0.08),1,"rgba(245,240,232,0.35)");ctx.restore();}
+      fadeText("1/4",170,oy+88+bh+20,18,0.58,"#7ec8e3","center");fadeText("1/2  >  1/4  ✓",W/2,308,22,0.78,"#4ade4a","center");fadeText("💡 Bigger denominator = smaller pieces",40,H-25,12,0.88,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="adding-fractions"){
+    if(s===0){
+      const bw=440,bh=56,ox=80,oy=120,parts=4;
+      for(let i=0;i<parts;i++)partialLine(ox+i*(bw/parts),oy,ox+i*(bw/parts),oy+bh,Math.min(1,(p>0.08+i*0.05?(p-0.08-i*0.05)/0.10:0)),1.5,"rgba(245,240,232,0.45)");
+      partialLine(ox,oy,ox+bw,oy,Math.min(1,p/0.12),2);partialLine(ox,oy+bh,ox+bw,oy+bh,Math.min(1,(p>0.10?(p-0.10)/0.14:0)),2);partialLine(ox,oy,ox,oy+bh,Math.min(1,(p>0.06?(p-0.06)/0.10:0)),2);partialLine(ox+bw,oy,ox+bw,oy+bh,Math.min(1,(p>0.22?(p-0.22)/0.10:0)),2);
+      if(p>0.30){ctx.save();ctx.fillStyle=ac+"55";ctx.fillRect(ox+1,oy+1,bw/parts-2,bh-2);ctx.restore();}
+      if(p>0.50){ctx.save();ctx.fillStyle="#7ec8e355";ctx.fillRect(ox+bw/parts+1,oy+1,2*(bw/parts)-2,bh-2);ctx.restore();}
+      fadeText("1/4",ox+bw/8,oy+bh+22,18,0.35,ac,"center");fadeText("+ 2/4",ox+bw*3/8,oy+bh+22,18,0.54,"#7ec8e3","center");fadeText("= 3/4",ox+bw*3/4,oy+bh+22,22,0.72,"#4ade4a","center");
+      fadeText("Same denominator → just add the tops",W/2,272,14,0.82,"#aaa","center");
+    } else if(s===1){
+      fadeText("1/3 + 1/2  (different denominators)",W/2,72,15,0.04,ac,"center");fadeText("Step 1: LCD of 3 and 2 = 6",50,118,15,0.12,"#aaa");
+      fadeText("1/3 = 2/6",50,158,22,0.24,"#f5f0e8");fadeText("× 2",196,158,14,0.30,"#f4a261");fadeText("1/2 = 3/6",50,198,22,0.40,"#f5f0e8");fadeText("× 3",196,198,14,0.46,"#f4a261");
+      partialLine(40,212,310,212,Math.min(1,(p>0.52?(p-0.52)/0.10:0)),1.5,"rgba(245,240,232,0.6)");
+      fadeText("2/6 + 3/6 = 5/6",50,250,28,0.62,"#4ade4a");fadeText("💡 Match denominators before adding",40,H-25,12,0.84,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="multiplying-fractions"){
+    if(s===0){
+      const gw=300,gh=200,ox=80,oy=95,cols=3,rows=2;
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const thresh=0.06+r*0.16+c*0.08;if(p>thresh){const a=Math.min(1,(p-thresh)/0.10),lit=(r===0&&c<2);ctx.save();ctx.globalAlpha=a;ctx.fillStyle=lit?ac+"55":"rgba(245,240,232,0.05)";ctx.fillRect(ox+c*(gw/cols)+1,oy+r*(gh/rows)+1,gw/cols-2,gh/rows-2);ctx.strokeStyle="rgba(245,240,232,0.45)";ctx.lineWidth=1;ctx.strokeRect(ox+c*(gw/cols)+1,oy+r*(gh/rows)+1,gw/cols-2,gh/rows-2);ctx.restore();}}
+      fadeText("1/2",ox-38,oy+gh/2,18,0.55,"#f4a261");fadeText("2/3",ox+gw/3,oy-22,18,0.55,"#7ec8e3","center");
+      fadeText("2 shaded out of 6 = 1/3",W/2,H-60,14,0.75,"#aaa","center");fadeText("1/2 × 2/3 = (1×2)/(2×3) = 2/6 = 1/3",W/2,H-35,15,0.82,"#f5f0e8","center");fadeText("Multiply tops then bottoms!",W/2,H-12,12,0.90,"#7ec8e3","center");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="shapes"){
+    if(s===0){
+      partialLine(85,255,165,130,Math.min(1,p/0.15),2.5);partialLine(165,130,245,255,Math.min(1,(p>0.15?(p-0.15)/0.15:0)),2.5);partialLine(245,255,85,255,Math.min(1,(p>0.30?(p-0.30)/0.15:0)),2.5);fadeText("triangle  3 sides",165,278,12,0.45,"#aaa","center");
+      if(p>0.48){partialLine(305,130,415,130,Math.min(1,(p-0.48)/0.12),2.5);partialLine(415,130,415,240,Math.min(1,(p>0.60?(p-0.60)/0.12:0)),2.5);partialLine(415,240,305,240,Math.min(1,(p>0.72?(p-0.72)/0.12:0)),2.5);partialLine(305,240,305,130,Math.min(1,(p>0.84?(p-0.84)/0.10:0)),2.5);fadeText("square  4 sides",360,262,12,0.88,"#aaa","center");}
+      if(p>0.90)partialCircle(530,185,48,Math.min(1,(p-0.90)/0.10),2.5);fadeText("circle",530,242,12,0.92,"#aaa","center");
+    } else if(s===1){
+      const sides=3+Math.floor(p*6);ctx.save();ctx.beginPath();for(let i=0;i<sides;i++){const a=i/sides*Math.PI*2-Math.PI/2,x=W/2+125*Math.cos(a),y=205+125*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.closePath();ctx.fillStyle=ac+"22";ctx.fill();ctx.strokeStyle="rgba(245,240,232,0.85)";ctx.lineWidth=2.5;ctx.stroke();ctx.restore();
+      fadeText(sides+" sides",W/2,205,28,0.05,ac,"center");const names=["","","","triangle","quadrilateral","pentagon","hexagon","heptagon","octagon"];fadeText(names[sides]||"",W/2,240,16,0.05,"#aaa","center");
+    } else if(s===2){
+      partialLine(55,222,340,222,Math.min(1,p/0.18),2.5);partialLine(55,222,55,80,Math.min(1,(p>0.18?(p-0.18)/0.20:0)),2.5);if(p>0.35){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.7)";ctx.lineWidth=1.5;ctx.strokeRect(55,207,18,18);ctx.restore();fadeText("90°",80,222,13,0.38,ac);}
+      partialLine(200,112,500,112,Math.min(1,(p>0.55?(p-0.55)/0.15:0)),2,"rgba(245,240,232,0.6)");partialLine(200,162,500,162,Math.min(1,(p>0.70?(p-0.70)/0.15:0)),2,"rgba(245,240,232,0.6)");fadeText("parallel lines",340,130,12,0.72,"#aaa");fadeText("💡 Parallel lines never meet",40,H-25,12,0.88,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="area-perimeter"){
+    if(s===0){
+      const cols=7,rows=4,sq=45,ox=45,oy=75,filled=Math.floor(p*(cols*rows+1));
+      for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const i=r*cols+c;ctx.save();ctx.fillStyle=i<filled?ac+"44":"rgba(245,240,232,0.04)";ctx.fillRect(ox+c*sq+1,oy+r*sq+1,sq-2,sq-2);ctx.strokeStyle="rgba(245,240,232,0.22)";ctx.lineWidth=0.8;ctx.strokeRect(ox+c*sq+1,oy+r*sq+1,sq-2,sq-2);ctx.restore();}
+      fadeText("Area = count the unit squares",W/2,H-55,14,0.65,"#aaa","center");fadeText(cols+" × "+rows+" = "+cols*rows+" sq units",W/2,H-30,18,0.75,"#f5f0e8","center");
+    } else if(s===1){
+      const rw=320,rh=160,rx=95,ry=88;ctx.save();ctx.fillStyle=ac+"0d";ctx.fillRect(rx,ry,rw,rh);ctx.restore();
+      partialLine(rx,ry,rx+rw*Math.min(1,p/0.20),ry,1,3,"#7ec8e3");partialLine(rx+rw,ry,rx+rw,ry+rh*Math.min(1,(p>0.20?(p-0.20)/0.15:0)),1,3,"#f4a261");partialLine(rx+rw,ry+rh,rx+rw-rw*Math.min(1,(p>0.35?(p-0.35)/0.20:0)),ry+rh,1,3,"#7ec8e3");partialLine(rx,ry+rh,rx,ry+rh-rh*Math.min(1,(p>0.55?(p-0.55)/0.15:0)),1,3,"#f4a261");
+      fadeText("8",rx+rw/2,ry-18,16,0.22,"#7ec8e3","center");fadeText("5",rx+rw+16,ry+rh/2,16,0.38,"#f4a261");fadeText("P = 2×(8+5) = 26 units",rx+10,ry+rh+40,16,0.72,"#f5f0e8");
+    } else if(s===2){
+      partialLine(58,278,398,278,Math.min(1,p/0.18),2.5);partialLine(398,278,228,98,Math.min(1,(p>0.18?(p-0.18)/0.20:0)),2.5);partialLine(228,98,58,278,Math.min(1,(p>0.38?(p-0.38)/0.20:0)),2.5);
+      partialLine(228,98,228,278,Math.min(1,(p>0.60?(p-0.60)/0.15:0)),2,"#f4a261aa");if(p>0.60){ctx.save();ctx.strokeStyle="#f4a261";ctx.lineWidth=1.5;ctx.strokeRect(216,266,12,12);ctx.restore();}
+      fadeText("h",240,190,16,0.65,"#f4a261");fadeText("base",228,302,14,0.20,"#7ec8e3","center");fadeText("Area = ½ × base × height",W/2,H-50,16,0.78,"#f5f0e8","center");fadeText("Triangle = half a rectangle",W/2,H-25,13,0.85,"#888","center");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="pythagorean"){
+    if(s===0){
+      partialLine(75,298,315,298,Math.min(1,p/0.20),3,"#7ec8e3");partialLine(75,298,75,100,Math.min(1,(p>0.20?(p-0.20)/0.20:0)),3,"#f4a261");partialLine(75,100,315,298,Math.min(1,(p>0.40?(p-0.40)/0.25:0)),3,ac);
+      if(p>0.35){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.7)";ctx.lineWidth=1.5;ctx.strokeRect(75,283,18,18);ctx.restore();}
+      fadeText("a",195,322,20,0.22,"#7ec8e3","center");fadeText("b",50,202,20,0.42,"#f4a261","center");fadeText("c",208,186,20,0.65,ac,"center");
+      fadeText("a² + b² = c²",360,165,24,0.68,"#f5f0e8");fadeText("c is always the longest side",360,200,13,0.72,"#aaa");fadeText("3² + 4² = 9+16 = 25 = 5²  ✓",360,268,13,0.82,"#4ade4a");
+    } else if(s===1){
+      const a=65,b=85;partialLine(180,298,180+a,298,Math.min(1,p/0.15),2);partialLine(180,298,180,298-b,Math.min(1,(p>0.15?(p-0.15)/0.15:0)),2);partialLine(180,298-b,180+a,298,Math.min(1,(p>0.30?(p-0.30)/0.15:0)),2,ac);
+      if(p>0.45){ctx.save();ctx.fillStyle="#7ec8e322";ctx.strokeStyle="#7ec8e3";ctx.lineWidth=1.5;ctx.fillRect(180,298,a,a);ctx.strokeRect(180,298,a,a);ctx.restore();fadeText("a²",180+a/2,298+a/2+6,12,"#7ec8e3","center");}
+      if(p>0.62){ctx.save();ctx.fillStyle="#f4a26122";ctx.strokeStyle="#f4a261";ctx.lineWidth=1.5;ctx.fillRect(85,298-b,b,b);ctx.strokeRect(85,298-b,b,b);ctx.restore();fadeText("b²",85+b/2,298-b/2+6,12,"#f4a261","center");}
+      fadeText("a²  +  b²  =  c²",355,195,20,0.78,"#f5f0e8");fadeText("both small squares = the big one",355,228,13,0.82,"#aaa");
+    } else if(s===2){
+      [{t:0.05,txt:"Find c: a=5, b=12",col:ac,sz:18},{t:0.15,txt:"a² + b² = c²",col:"#f5f0e8",sz:22},{t:0.28,txt:"25 + 144 = c²",col:"#f5f0e8",sz:22},{t:0.42,txt:"169 = c²",col:"#f5f0e8",sz:22},{t:0.56,txt:"c = √169 = 13",col:"#4ade4a",sz:26}].forEach((st,i)=>fadeText(st.txt,58,90+i*44,st.sz,st.t,st.col));
+      if(p>0.72)partialLine(58,328,255,328,Math.min(1,(p-0.72)/0.12),2,"#4ade4a99");fadeText("💡 5-12-13 is a Pythagorean triple!",40,H-25,12,0.88,"#888");
+    } else if(s===3){
+      partialLine(78,288,218,288,Math.min(1,p/0.18),2.5,"#7ec8e3");partialLine(78,288,78,130,Math.min(1,(p>0.18?(p-0.18)/0.18:0)),2.5,"#f4a261");partialLine(78,130,218,288,Math.min(1,(p>0.36?(p-0.36)/0.20:0)),2.5,ac);
+      if(p>0.32){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.6)";ctx.lineWidth=1.5;ctx.strokeRect(78,273,15,15);ctx.restore();}
+      fadeText("a=5",148,312,16,0.20,"#7ec8e3","center");fadeText("b=?",45,215,16,0.40,"#f4a261");fadeText("c=13",158,195,16,0.60,ac,"center");
+      fadeText("b² = c² − a²",318,158,18,0.68,"#f5f0e8");fadeText("b² = 169−25 = 144",318,192,16,0.76,"#f5f0e8");fadeText("b = 12  ✓",318,228,22,0.84,"#4ade4a");fadeText("💡 Rearrange: b² = c² − a²",40,H-25,12,0.90,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="equations"){
+    if(s===0){
+      const cx=W/2,cy=178,arm=200;partialLine(cx,cy+58,cx,cy-18,Math.min(1,p/0.15),2.5);
+      partialLine(cx-arm*Math.min(1,(p>0.15?(p-0.15)/0.20:0)),cy,cx+arm*Math.min(1,(p>0.15?(p-0.15)/0.20:0)),cy,Math.min(1,(p>0.15?(p-0.15)/0.20:0)),2.5);
+      if(p>0.35){partialLine(cx-arm,cy,cx-arm,cy+58,Math.min(1,(p-0.35)/0.12),2);if(p>0.42)partialLine(cx+arm,cy,cx+arm,cy+58,Math.min(1,(p-0.42)/0.12),2);}
+      if(p>0.50){ctx.save();ctx.fillStyle=ac+"33";ctx.strokeStyle=ac;ctx.lineWidth=1.5;ctx.fillRect(cx-arm-32,cy+58,64,30);ctx.strokeRect(cx-arm-32,cy+58,64,30);ctx.restore();fadeText("2x+3",cx-arm,cy+78,14,0.52,ac,"center");}
+      if(p>0.62){ctx.save();ctx.fillStyle="#7ec8e333";ctx.strokeStyle="#7ec8e3";ctx.lineWidth=1.5;ctx.fillRect(cx+arm-32,cy+58,64,30);ctx.strokeRect(cx+arm-32,cy+58,64,30);ctx.restore();fadeText("11",cx+arm,cy+78,14,0.64,"#7ec8e3","center");}
+      fadeText("2x + 3 = 11",W/2,H-58,22,0.72,"#f5f0e8","center");fadeText("💡 = means both sides are equal",W/2,H-12,12,0.88,"#888","center");
+    } else if(s===1){
+      fadeText("The Golden Rule:",40,88,18,0.04,ac);fadeText("Do the SAME thing to BOTH sides",40,130,17,0.14,"#f5f0e8");fadeText("to keep the equation balanced.",40,158,17,0.22,"#f5f0e8");
+      if(p>0.38){ctx.save();ctx.strokeStyle=ac;ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.strokeRect(30,110,W-60,68);ctx.setLineDash([]);ctx.restore();}
+      fadeText("+5 on left → +5 on right",48,225,15,0.50,"#7ec8e3");fadeText("×3 on left → ×3 on right",48,255,15,0.62,"#7ec8e3");fadeText("÷2 on left → ÷2 on right",48,285,15,0.74,"#7ec8e3");fadeText("💡 Think: balance scale",40,H-25,12,0.84,"#888");
+    } else if(s===2){
+      [{t:0.05,txt:"Solve:  2x + 3 = 11",col:ac,sz:20},{t:0.18,txt:"Subtract 3 from both sides:",col:"#aaa",sz:13},{t:0.26,txt:"2x + 3 − 3 = 11 − 3",col:"#f5f0e8",sz:18},{t:0.38,txt:"2x = 8",col:"#f5f0e8",sz:22},{t:0.50,txt:"Divide both sides by 2:",col:"#aaa",sz:13},{t:0.58,txt:"2x ÷ 2 = 8 ÷ 2",col:"#f5f0e8",sz:18},{t:0.70,txt:"x = 4  ✓",col:"#4ade4a",sz:26}].forEach((st,i)=>fadeText(st.txt,58,85+i*36,st.sz,st.t,st.col));
+      if(p>0.76)partialLine(58,345,210,345,Math.min(1,(p-0.76)/0.10),2,"#4ade4acc");fadeText("Check: 2(4)+3=11 ✓",58,H-35,14,0.84,"#888");
+    } else if(s===3){
+      [{t:0.04,txt:"3x + 4 = x + 12",col:ac,sz:22},{t:0.18,txt:"Subtract x from both sides:",col:"#aaa",sz:13},{t:0.26,txt:"2x + 4 = 12",col:"#f5f0e8",sz:20},{t:0.38,txt:"Subtract 4:",col:"#aaa",sz:13},{t:0.46,txt:"2x = 8",col:"#f5f0e8",sz:20},{t:0.58,txt:"Divide by 2:",col:"#aaa",sz:13},{t:0.66,txt:"x = 4  ✓",col:"#4ade4a",sz:24}].forEach((st,i)=>fadeText(st.txt,58,78+i*36,st.sz,st.t,st.col));fadeText("💡 Collect all x terms first",40,H-25,12,0.88,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="variables"){
+    if(s===0){
+      const bx=W/2-52,by=118,bw=104,bh=82;ctx.save();ctx.globalAlpha=Math.min(1,p/0.20);ctx.fillStyle=ac+"33";ctx.fillRect(bx,by,bw,bh);ctx.strokeStyle=ac;ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);ctx.restore();
+      fadeText("x",W/2,by+bh/2+12,44,0.22,ac,"center");const val=3+Math.floor((p>0.50?(p-0.50)*12:0))%8;
+      fadeText("x  could  be  "+val,W/2,258,18,0.55,"#f5f0e8","center");fadeText("Variables hold unknown values",W/2,H-40,14,0.78,"#888","center");fadeText("💡 x, y, n are common variable names",W/2,H-18,12,0.88,"#888","center");
+    } else if(s===1){
+      fadeText("Substituting x = 4:",40,85,18,0.05,ac);fadeText("Expression:  2x + 3",48,128,18,0.10,"#f5f0e8");fadeText("Replace x with 4:",48,170,15,0.22,"#aaa");fadeText("2(4) + 3",48,210,24,0.34,"#f5f0e8");fadeText("= 8 + 3",48,252,24,0.52,"#7ec8e3");fadeText("= 11",48,295,28,0.68,"#4ade4a");fadeText("💡 Swap the letter for its value",40,H-25,12,0.82,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="matrices-intro"){
+    const vals=[[2,1,0],[3,5,2],[1,4,7]],cw=82,ch=56,ox=115,oy=88,rows=3,cols=3;
+    vals.forEach((row,r)=>row.forEach((v,c)=>{
+      const thresh=0.07+r*0.18+c*0.07;
+      if(p>thresh){
+        const a=Math.min(1,(p-thresh)/0.10);
+        const lit=s===1&&r===1&&c===2;
+        const cellCol=lit?"#fff":"#f5f0e8";
+        ctx.save();ctx.globalAlpha=a;ctx.fillStyle=lit?ac+"44":"rgba(245,240,232,0.05)";ctx.fillRect(ox+c*cw,oy+r*ch,cw,ch);
+        ctx.strokeStyle=lit?ac:"rgba(245,240,232,0.35)";ctx.lineWidth=lit?2:1;ctx.strokeRect(ox+c*cw,oy+r*ch,cw,ch);
+        chalkText(String(v),ox+c*cw+cw/2-6,oy+r*ch+ch/2+8,22,cellCol);ctx.restore();
+      }
+    }));
+    if(p>0.60){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.78)";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(ox-10,oy);ctx.lineTo(ox-16,oy);ctx.lineTo(ox-16,oy+rows*ch);ctx.lineTo(ox-10,oy+rows*ch);ctx.stroke();ctx.beginPath();ctx.moveTo(ox+cols*cw+10,oy);ctx.lineTo(ox+cols*cw+16,oy);ctx.lineTo(ox+cols*cw+16,oy+rows*ch);ctx.lineTo(ox+cols*cw+10,oy+rows*ch);ctx.stroke();ctx.restore();}
+    fadeText("3 × 3 matrix",W/2,H-58,15,0.65,ac,"center");if(s===1)fadeText("row 2, column 3 is highlighted",W/2,H-35,13,0.75,"#aaa","center");
+    fadeText("💡 Rows go across, columns go down",W/2,H-12,12,0.88,"#888","center");
+  }
+  else if(topicId==="matrix-operations"){
+    const A=[[1,2],[3,4]],B=[[5,6],[7,8]];
+    const addC=A.map((r,ri)=>r.map((v,ci)=>v+B[ri][ci]));
+    const mulC=[[19,22],[43,50]];
+    const isAdd=s<=1;
+    drawMat(A,40,105,"A",false,ac);fadeText(isAdd?"+":"×",200,138,24,0.44,"#f5f0e8","center");drawMat(B,222,105,"B",false,"#7ec8e3");fadeText("=",378,138,24,0.56,"#f5f0e8","center");drawMat(isAdd?addC:mulC,400,105,isAdd?"A+B":"A×B",true,"#4ade4a");
+    if(isAdd){fadeText("Add matching positions element by element",W/2,H-50,14,0.72,"#aaa","center");}
+    else{fadeText("Row × Column for each cell:",W/2,H-70,14,0.72,"#aaa","center");fadeText("C[1][1] = 1×5 + 2×7 = 19",W/2,H-46,13,0.78,"#f5f0e8","center");}
+    fadeText("💡 "+ss.hint,40,H-18,12,0.88,"#888");
+  }
+  else if(topicId==="determinant"){
+    const mvals=[[4,3],[2,5]],det=14,cw=84,ch=62,ox=158,oy=98;
+    mvals.forEach((row,r)=>row.forEach((v,c)=>{const thresh=0.06+r*0.20+c*0.12;if(p>thresh){const a=Math.min(1,(p-thresh)/0.10);ctx.save();ctx.globalAlpha=a;ctx.fillStyle="rgba(245,240,232,0.05)";ctx.fillRect(ox+c*cw,oy+r*ch,cw,ch);ctx.strokeStyle="rgba(245,240,232,0.4)";ctx.lineWidth=1;ctx.strokeRect(ox+c*cw,oy+r*ch,cw,ch);chalkText(String(v),ox+c*cw+cw/2-8,oy+r*ch+ch/2+8,26,"#f5f0e8");ctx.restore();}}));
+    if(p>0.45){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.75)";ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(ox-10,oy);ctx.lineTo(ox-16,oy);ctx.lineTo(ox-16,oy+2*ch);ctx.lineTo(ox-10,oy+2*ch);ctx.stroke();ctx.beginPath();ctx.moveTo(ox+2*cw+10,oy);ctx.lineTo(ox+2*cw+16,oy);ctx.lineTo(ox+2*cw+16,oy+2*ch);ctx.lineTo(ox+2*cw+10,oy+2*ch);ctx.stroke();ctx.restore();}
+    if(p>0.55)partialLine(ox+10,oy+10,ox+2*cw-10,oy+2*ch-10,Math.min(1,(p-0.55)/0.15),2.5,"#4ade4a88");
+    if(p>0.68)partialLine(ox+2*cw-10,oy+10,ox+10,oy+2*ch-10,Math.min(1,(p-0.68)/0.15),2.5,"#f4a26188");
+    fadeText("det = ad − bc",W/2,H-72,18,0.72,"#f5f0e8","center");fadeText("(4×5) − (3×2) = 20−6 = "+det,W/2,H-44,16,0.80,"#f5f0e8","center");fadeText(det+" ≠ 0  →  inverse exists  ✓",W/2,H-18,14,0.88,"#4ade4a","center");
+  }
+  else if(topicId==="inverse-matrix"){
+    if(s<=1){
+      drawMat([[2,1],[1,1]],38,98,"A",false,ac);fadeText("×",182,135,22,0.40,"#f5f0e8","center");drawMat([[1,-1],[-1,2]],205,98,"A⁻¹",false,"#7ec8e3");fadeText("=",358,135,22,0.58,"#f5f0e8","center");drawMat([[1,0],[0,1]],378,98,"I",true,"#4ade4a");
+      fadeText("Formula:",40,H-78,14,0.68,ac);fadeText("1/det × [ d  −b ]",40,H-55,15,0.74,"#f5f0e8");fadeText("         [−c   a ]",40,H-35,15,0.80,"#f5f0e8");fadeText("💡 Swap a&d, negate b&c, divide by det",40,H-12,12,0.88,"#888");
+    } else {contentBullets();mistakeBox();}
+  }
+  else if(topicId==="inverse-functions"){
+    if(s===0){
+      const bw=100,bh=44,by=170;ctx.save();ctx.globalAlpha=Math.min(1,p/0.20);ctx.fillStyle=ac+"33";ctx.strokeStyle=ac;ctx.lineWidth=2;ctx.fillRect(38,by,bw,bh);ctx.strokeRect(38,by,bw,bh);ctx.restore();
+      fadeText("x = 3",88,by+bh/2+6,17,0.05,ac,"center");partialLine(138,by+bh/2,240,by+bh/2,Math.min(1,(p>0.20?(p-0.20)/0.15:0)),2.5,"#7ec8e3");fadeText("f(x)=2x+1",190,by+bh/2-18,12,0.25,"#7ec8e3","center");
+      if(p>0.36){ctx.save();ctx.globalAlpha=Math.min(1,(p-0.36)/0.14);ctx.fillStyle="#7ec8e333";ctx.strokeStyle="#7ec8e3";ctx.lineWidth=2;ctx.fillRect(240,by,bw,bh);ctx.strokeRect(240,by,bw,bh);ctx.restore();fadeText("y = 7",290,by+bh/2+6,17,0.38,"#7ec8e3","center");}
+      if(p>0.55){ctx.save();ctx.strokeStyle="#f4a261";ctx.lineWidth=2;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(340,by+bh/2);ctx.lineTo(440,by+bh/2);ctx.stroke();ctx.setLineDash([]);ctx.restore();fadeText("f⁻¹",390,by+bh/2-18,12,0.58,"#f4a261","center");}
+      if(p>0.70){ctx.save();ctx.globalAlpha=Math.min(1,(p-0.70)/0.14);ctx.fillStyle="#f4a26133";ctx.strokeStyle="#f4a261";ctx.lineWidth=2;ctx.fillRect(440,by,bw,bh);ctx.strokeRect(440,by,bw,bh);ctx.restore();fadeText("x = 3",490,by+bh/2+6,17,0.72,"#f4a261","center");}
+      fadeText("f⁻¹ undoes f",W/2,H-42,16,0.82,"#f5f0e8","center");fadeText("if f: 3→7,  then f⁻¹: 7→3",W/2,H-18,13,0.88,"#888","center");
+    } else if(s===1){
+      fadeText("Finding f⁻¹ of  f(x) = 2x + 1:",40,82,16,0.05,ac);
+      [{t:0.14,txt:"Step 1:  y = 2x + 1"},{t:0.30,txt:"Step 2:  swap x and y"},{t:0.38,txt:"          x = 2y + 1"},{t:0.50,txt:"Step 3:  solve for y"},{t:0.58,txt:"          x − 1 = 2y"},{t:0.68,txt:"          y = (x−1) / 2"},{t:0.78,txt:"f⁻¹(x) = (x − 1) / 2  ✓"}].forEach((st,i)=>fadeText(st.txt,48,125+i*30,i===6?20:15,st.t,i===6?"#4ade4a":"#f5f0e8"));
+      fadeText("💡 Swap x and y FIRST, then solve",40,H-25,12,0.88,"#888");
+    } else if(s===2){
+      drawAxes(78,298,450,218);
+      if(p>0.22){ctx.save();ctx.strokeStyle="rgba(245,240,232,0.22)";ctx.lineWidth=1;ctx.setLineDash([5,4]);ctx.beginPath();ctx.moveTo(78,298);ctx.lineTo(298,78);ctx.stroke();ctx.setLineDash([]);ctx.restore();fadeText("y=x",290,70,11,0.25,"#555");}
+      if(p>0.38)partialLine(78,298,278,130,Math.min(1,(p-0.38)/0.25),2.5,"#7ec8e3");fadeText("f(x)",282,122,12,0.62,"#7ec8e3");
+      if(p>0.66)partialLine(78,298,358,218,Math.min(1,(p-0.66)/0.25),2.5,"#f4a261");fadeText("f⁻¹(x)",362,212,12,0.90,"#f4a261");
+      fadeText("Inverse = reflection across y=x",W/2,H-18,13,0.92,"#888","center");
+    } else {contentBullets();mistakeBox();}
+  }
+  else {
+    contentBullets();
+    if(["percent","intro-decimals","converting"].includes(topicId)){
+      const pct2=Math.round(p*100),bw=440,bh=36,ox=80,oy=255;
+      ctx.save();ctx.fillStyle="rgba(245,240,232,0.05)";ctx.strokeStyle="rgba(245,240,232,0.35)";ctx.lineWidth=1.5;ctx.fillRect(ox,oy,bw,bh);ctx.strokeRect(ox,oy,bw,bh);ctx.fillStyle=ac+"66";ctx.fillRect(ox+1,oy+1,bw*p-2,bh-2);ctx.restore();
+      fadeText(pct2+"%",W/2,oy+bh/2+7,18,0.04,ac,"center");
+    } else if(["linear-functions","inequalities"].includes(topicId)){
+      drawAxes();if(p>0.40)partialLine(80,262,480,142,Math.min(1,(p-0.40)/0.35),2.5,ac);fadeText("y = mx + b",300,128,15,0.78,"#aaa");
+    }
+    mistakeBox();
+  }
+  if(p<0.98&&p>0.02){ctx.save();ctx.globalAlpha=0.6+Math.sin(tick*0.3)*0.4;ctx.beginPath();ctx.arc(W*0.5+Math.sin(tick*0.05)*80,H*0.5+Math.cos(tick*0.07)*40,3,0,Math.PI*2);ctx.fillStyle="#f5f0e8";ctx.fill();ctx.restore();}
+}
+
+const BADGES=[{id:"first_lesson",emoji:"🎬",name:"First Lesson",desc:"Watch your very first lesson",check:p=>p.lessonsWatched>=1},{id:"first_practice",emoji:"✏️",name:"First Practice",desc:"Complete your first practice session",check:p=>p.practicesDone>=1},{id:"first_quiz",emoji:"📝",name:"First Quiz",desc:"Finish your first final quiz",check:p=>p.quizzesDone>=1},{id:"perfect_quiz",emoji:"💯",name:"Perfect Score",desc:"Score 10 out of 10 on any quiz",check:p=>p.perfectQuizzes>=1},{id:"five_lessons",emoji:"🎓",name:"Dedicated Student",desc:"Watch 5 lessons",check:p=>p.lessonsWatched>=5},{id:"ten_lessons",emoji:"🏫",name:"Class in Session",desc:"Watch 10 lessons",check:p=>p.lessonsWatched>=10},{id:"five_quizzes",emoji:"🏅",name:"Quiz Champion",desc:"Complete 5 quizzes",check:p=>p.quizzesDone>=5},{id:"unit_complete",emoji:"⭐",name:"Unit Complete",desc:"Finish all topics in any unit",check:p=>Object.values(p.unitsDone||{}).some(v=>v===true)},{id:"all_units",emoji:"🏆",name:"Grand Master",desc:"Complete every unit",check:p=>CURRICULUM.every(u=>p.unitsDone?.[u.unit]===true)},{id:"high_scorer",emoji:"🎯",name:"High Scorer",desc:"Score 5+ on practice 3 times",check:p=>p.highPractice>=3},{id:"streak_3",emoji:"🔥",name:"On Fire",desc:"Complete 3 topics",check:p=>p.topicStreak>=3},{id:"linalg",emoji:"🔢",name:"Linear Algebraist",desc:"Complete any Linear Algebra topic",check:p=>(p.completedTopics||[]).some(id=>["matrices-intro","matrix-operations","determinant","inverse-matrix","inverse-functions"].includes(id))}];
+const DEFAULT_PROGRESS={lessonsWatched:0,practicesDone:0,quizzesDone:0,perfectQuizzes:0,highPractice:0,topicStreak:0,completedTopics:[],quizScores:{},earnedBadges:[],unitsDone:{}};
+
+async function loadProgress(){try{const r=await window.storage.get("mathacademy_progress");if(r)return{...DEFAULT_PROGRESS,...JSON.parse(r.value)};}catch(e){}try{const v=localStorage.getItem("mathacademy_progress");if(v)return{...DEFAULT_PROGRESS,...JSON.parse(v)};}catch(e){}return{...DEFAULT_PROGRESS};}
+async function saveProgress(p){try{await window.storage.set("mathacademy_progress",JSON.stringify(p));}catch(e){}try{localStorage.setItem("mathacademy_progress",JSON.stringify(p));}catch(e){}}
+function checkNewBadges(progress){const already=new Set(progress.earnedBadges||[]);const newOnes=[];for(const badge of BADGES){if(!already.has(badge.id)&&badge.check(progress)){newOnes.push(badge);already.add(badge.id);}}return{newBadges:newOnes,earnedBadges:[...already]};}
+
+function BadgeToast({badges,onDone}){const[idx,setIdx]=useState(0);const badge=badges[idx];useEffect(()=>{if(!badge)return;speakText("Badge unlocked: "+badge.name+".");const t=setTimeout(()=>{if(idx+1>=badges.length)onDone();else setIdx(i=>i+1);},3200);return()=>clearTimeout(t);},[idx]);if(!badge)return null;return(<div style={{position:"fixed",bottom:24,right:24,background:"#1a1a2e",border:"2px solid #f72585",borderRadius:14,padding:"16px 22px",display:"flex",alignItems:"center",gap:14,zIndex:9999,boxShadow:"0 4px 32px #f7258544",animation:"slideIn 0.4s ease"}}><style>{`@keyframes slideIn{from{transform:translateX(120px);opacity:0}to{transform:none;opacity:1}}`}</style><div style={{fontSize:36}}>{badge.emoji}</div><div><div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#f72585",marginBottom:3}}>Badge Unlocked!</div><div style={{fontSize:15,fontWeight:"bold",color:"#fff"}}>{badge.name}</div><div style={{fontSize:12,color:"#888",marginTop:2}}>{badge.desc}</div></div></div>);}
+
+function ProgressDashboard({progress,onClose}){const earned=new Set(progress.earnedBadges||[]);const totalTopics=CURRICULUM.reduce((s,u)=>s+u.topics.length,0);const done=(progress.completedTopics||[]).length;const pct=Math.round((done/totalTopics)*100);return(<div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={onClose}><div style={{background:"#0d0d14",border:"1px solid #1e1e2e",borderRadius:16,width:"min(680px,95vw)",maxHeight:"85vh",overflowY:"auto",padding:28}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:22}}><div style={{fontSize:20,fontWeight:"bold",color:"#fff"}}>Your Progress</div><button onClick={onClose} style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:20}}>✕</button></div><div style={{background:"#111",borderRadius:8,padding:"16px 20px",marginBottom:18}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><div style={{fontSize:13,color:"#888"}}>Overall completion</div><div style={{fontSize:13,color:"#fff",fontWeight:"bold"}}>{done} / {totalTopics} topics</div></div><div style={{height:10,background:"#1a1a2e",borderRadius:5,overflow:"hidden"}}><div style={{height:"100%",background:"linear-gradient(90deg,#f72585,#7b2d8b)",width:pct+"%",borderRadius:5,transition:"width 0.5s ease"}}/></div><div style={{fontSize:11,color:"#555",marginTop:6}}>{pct}% complete</div></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:22}}>{[{label:"Lessons",value:progress.lessonsWatched||0,icon:"🎬"},{label:"Practices",value:progress.practicesDone||0,icon:"✏️"},{label:"Quizzes",value:progress.quizzesDone||0,icon:"📝"},{label:"Badges",value:(progress.earnedBadges||[]).length+"/"+BADGES.length,icon:"🏅"}].map(s=>(<div key={s.label} style={{background:"#111118",borderRadius:10,padding:"12px 10px",textAlign:"center"}}><div style={{fontSize:22}}>{s.icon}</div><div style={{fontSize:18,fontWeight:"bold",color:"#fff",marginTop:4}}>{s.value}</div><div style={{fontSize:10,color:"#555",marginTop:2}}>{s.label}</div></div>))}</div><div style={{marginBottom:22}}><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",color:"#444",marginBottom:12}}>Units</div><div style={{display:"flex",flexDirection:"column",gap:8}}>{CURRICULUM.map(u=>{const finished=u.topics.filter(t=>(progress.completedTopics||[]).includes(t.id)).length;const upct=Math.round((finished/u.topics.length)*100);return(<div key={u.unit} style={{background:"#111118",borderRadius:8,padding:"10px 14px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14}}>{u.icon}</span><span style={{fontSize:13,color:"#ddd"}}>{u.unit}</span></div><span style={{fontSize:11,color:u.color}}>{finished}/{u.topics.length}</span></div><div style={{height:5,background:"#1a1a2e",borderRadius:3,overflow:"hidden"}}><div style={{height:"100%",background:u.color,width:upct+"%",borderRadius:3,transition:"width 0.4s"}}/></div><div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:8}}>{u.topics.map(t=>{const complete=(progress.completedTopics||[]).includes(t.id);const score=progress.quizScores?.[t.id];return(<div key={t.id} style={{fontSize:10,padding:"3px 8px",borderRadius:4,background:complete?u.color+"33":"#0d0d18",border:"1px solid "+(complete?u.color:"#2a2a3a"),color:complete?u.color:"#444"}}>{complete&&"✓ "}{t.title}{score!=null?" · "+score+"/10":""}</div>);})}</div></div>);})}</div></div><div><div style={{fontSize:12,letterSpacing:3,textTransform:"uppercase",color:"#444",marginBottom:12}}>Badges ({(progress.earnedBadges||[]).length}/{BADGES.length})</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10}}>{BADGES.map(b=>{const have=earned.has(b.id);return(<div key={b.id} style={{background:have?"#1a1a2e":"#0d0d14",border:"1px solid "+(have?"#f72585":"#1e1e2e"),borderRadius:10,padding:"12px 10px",textAlign:"center",opacity:have?1:0.4}}><div style={{fontSize:28,filter:have?"none":"grayscale(1)"}}>{b.emoji}</div><div style={{fontSize:11,fontWeight:"bold",color:have?"#fff":"#555",marginTop:5}}>{b.name}</div><div style={{fontSize:9,color:"#555",marginTop:3,lineHeight:1.4}}>{b.desc}</div></div>);})}</div></div></div></div>);}
+
+function VideoPlayer({slides,accentColor,unitName,unitPattern,topicId,onFinish}){const[idx,setIdx]=useState(0);const[speaking,setSpeaking]=useState(false);const[mouthOpen,setMouthOpen]=useState(false);const[drawProgress,setDrawProgress]=useState(0);const[tick,setTick]=useState(0);const mouthRef=useRef(null);const drawRef=useRef(null);const canvasRef=useRef(null);const slide=slides[idx];
+useEffect(()=>{const id=setInterval(()=>setTick(t=>t+1),40);return()=>clearInterval(id);},[]);
+useEffect(()=>{if(!slide)return;setDrawProgress(0);setSpeaking(true);clearInterval(drawRef.current);let prog=0;drawRef.current=setInterval(()=>{prog+=0.7;if(prog>=100){prog=100;clearInterval(drawRef.current);}setDrawProgress(prog);},56);clearInterval(mouthRef.current);mouthRef.current=setInterval(()=>setMouthOpen(o=>!o),200);speakText(slide.narration,()=>{setSpeaking(false);setMouthOpen(false);clearInterval(mouthRef.current);});return()=>{clearInterval(mouthRef.current);clearInterval(drawRef.current);window.speechSynthesis.cancel();};},[idx]);
+useEffect(()=>{drawBlackboard(canvasRef.current,slide,idx,drawProgress,tick,accentColor,topicId);},[drawProgress,tick,idx,slide,accentColor,topicId]);
+function next(){window.speechSynthesis.cancel();clearInterval(mouthRef.current);clearInterval(drawRef.current);setSpeaking(false);setMouthOpen(false);if(idx+1>=slides.length)onFinish();else setIdx(i=>i+1);}
+if(!slide)return null;
+return(<div style={{flex:1,display:"flex",flexDirection:"column",background:"#0a120a",overflow:"hidden"}}><div style={{height:3,background:"#111"}}><div style={{height:"100%",background:accentColor,width:((idx+1)/slides.length)*100+"%",transition:"width 0.4s"}}/></div><div style={{flex:1,position:"relative",overflow:"hidden"}}><canvas ref={canvasRef} width={620} height={380} style={{width:"100%",height:"100%",display:"block"}}/><div style={{position:"absolute",bottom:16,right:16,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}><div style={{position:"relative"}}><div style={{width:52,height:52,borderRadius:"50%",background:"#f0c090",border:"2px solid "+accentColor+"66",position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:15,left:10,width:8,height:speaking?3:8,background:"#3a2010",borderRadius:"50%",transition:"height 0.1s"}}/><div style={{position:"absolute",top:15,right:10,width:8,height:speaking?3:8,background:"#3a2010",borderRadius:"50%",transition:"height 0.1s"}}/><div style={{position:"absolute",bottom:10,left:"50%",transform:"translateX(-50%)",width:mouthOpen?16:10,height:mouthOpen?7:3,background:mouthOpen?"#9a4020":"#c07050",borderRadius:mouthOpen?"0 0 8px 8px":3,transition:"all 0.12s"}}/></div>{speaking&&<div style={{position:"absolute",top:-2,right:-2,width:10,height:10,borderRadius:"50%",background:accentColor,animation:"blink 1s infinite"}}/>}</div><div style={{fontSize:9,color:"#555",letterSpacing:1}}>Ms. Maya</div>{speaking&&(<div style={{display:"flex",gap:2,alignItems:"flex-end",height:12}}>{[6,10,7,12,6].map((h,i)=><div key={i} style={{width:2,background:accentColor,borderRadius:2,height:h,animation:"wv 0.5s ease-in-out infinite",animationDelay:i*0.09+"s"}}/>)}</div>)}<button onClick={()=>speakText(slide.narration)} style={{background:"transparent",border:"1px solid #222",borderRadius:5,padding:"3px 7px",color:"#444",cursor:"pointer",fontSize:9}}>↺</button></div><div style={{position:"absolute",top:10,right:16,fontSize:10,color:"#444",letterSpacing:2}}>{idx+1} / {slides.length}</div></div><div style={{padding:"12px 20px",borderTop:"1px solid #111",display:"flex",justifyContent:"space-between",alignItems:"center",background:"#060e06"}}><div style={{fontSize:11,color:"#2a3a2a"}}>{speaking?"Ms. Maya is explaining…":"Ready when you are"}</div><button onClick={next} style={{background:accentColor,border:"none",borderRadius:7,padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:"bold",cursor:"pointer"}}>{idx+1>=slides.length?"Finish Lesson ✓":"Next →"}</button></div><style>{`@keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.3;transform:scale(1.6)}}@keyframes wv{0%,100%{transform:scaleY(0.3)}50%{transform:scaleY(1)}}`}</style></div>);}
+
+function PracticeMode({topic,accentColor,unitPattern,onDone}){const[questions,setQuestions]=useState(null);const[qIdx,setQIdx]=useState(0);const[input,setInput]=useState("");const[feedback,setFeedback]=useState(null);const[checking,setChecking]=useState(false);const[score,setScore]=useState(0);
+const FB={"addition":[{question:"What is 8 plus 6?",answer:"14"},{question:"What is 15 minus 7?",answer:"8"},{question:"What is 23 plus 14?",answer:"37"},{question:"What is 42 minus 18?",answer:"24"},{question:"9 plus 9 plus 4?",answer:"22"},{question:"47 apples, give away 19, how many left?",answer:"28"}],"multiplication":[{question:"6 times 7?",answer:"42"},{question:"8 times 4?",answer:"32"},{question:"9 times 3?",answer:"27"},{question:"5 times 8?",answer:"40"},{question:"7 times 7?",answer:"49"},{question:"6 boxes, 9 items each, total?",answer:"54"}],"division":[{question:"24 divided by 6?",answer:"4"},{question:"35 divided by 7?",answer:"5"},{question:"48 divided by 8?",answer:"6"},{question:"63 divided by 9?",answer:"7"},{question:"36 students, 4 groups, each group?",answer:"9"},{question:"100 divided by 5?",answer:"20"}],"intro-fractions":[{question:"Top number of a fraction?",answer:"numerator"},{question:"Bottom number of a fraction?",answer:"denominator"},{question:"Pizza cut into 4, eat 1, what fraction?",answer:"1/4"},{question:"Bigger: one half or one quarter?",answer:"one half"},{question:"Three quarters as a fraction?",answer:"3/4"},{question:"Shade 2 out of 5 parts, fraction shaded?",answer:"2/5"}],"adding-fractions":[{question:"One quarter plus two quarters?",answer:"3/4"},{question:"One third plus one third?",answer:"2/3"},{question:"Two fifths plus two fifths?",answer:"4/5"},{question:"One half plus one half?",answer:"1"},{question:"One sixth plus three sixths?",answer:"4/6"},{question:"Three eighths plus three eighths?",answer:"6/8"}],"multiplying-fractions":[{question:"One half times one half?",answer:"1/4"},{question:"Two thirds times three quarters?",answer:"1/2"},{question:"One third times one third?",answer:"1/9"},{question:"Two thirds times one half?",answer:"1/3"},{question:"Three quarters times four fifths?",answer:"3/5"},{question:"One half times two thirds?",answer:"1/3"}],"variables":[{question:"x=5, what is 2x plus 3?",answer:"13"},{question:"x=4, what is 3x minus 2?",answer:"10"},{question:"x=6, what is x plus 7?",answer:"13"},{question:"x=10, what is x divided by 2?",answer:"5"},{question:"x=3, what is x times x?",answer:"9"},{question:"x=8, what is 2x plus x?",answer:"24"}],"equations":[{question:"x plus 3 equals 7, x?",answer:"4"},{question:"2x equals 10, x?",answer:"5"},{question:"x minus 4 equals 6, x?",answer:"10"},{question:"3x equals 12, x?",answer:"4"},{question:"x plus 8 equals 15, x?",answer:"7"},{question:"2x plus 1 equals 9, x?",answer:"4"}],"shapes":[{question:"Sides of a triangle?",answer:"3"},{question:"Sides of a square?",answer:"4"},{question:"Shape with no corners?",answer:"circle"},{question:"Sides of a hexagon?",answer:"6"},{question:"Shape with 8 sides?",answer:"octagon"},{question:"Right angles in a rectangle?",answer:"4"}],"area-perimeter":[{question:"Area of rectangle, length 5, width 3?",answer:"15"},{question:"Perimeter of square, side 4?",answer:"16"},{question:"Area of rectangle, length 8, width 6?",answer:"48"},{question:"Perimeter of rectangle, length 7, width 3?",answer:"20"},{question:"Square area 25, side length?",answer:"5"},{question:"Area of triangle, base 6, height 4?",answer:"12"}],"pythagorean":[{question:"Right triangle, legs 3 and 4, hypotenuse?",answer:"5"},{question:"Right triangle, legs 5 and 12, hypotenuse?",answer:"13"},{question:"Hypotenuse 10, one leg 6, other leg?",answer:"8"},{question:"Legs 8 and 15, hypotenuse?",answer:"17"},{question:"Pythagorean theorem states?",answer:"a squared plus b squared equals c squared"},{question:"Legs 9 and 12, hypotenuse?",answer:"15"}],"matrices-intro":[{question:"Rows in a 3 by 4 matrix?",answer:"3"},{question:"Columns in a 3 by 4 matrix?",answer:"4"},{question:"Elements in a 2 by 3 matrix?",answer:"6"},{question:"Square matrix has equal rows and?",answer:"columns"},{question:"Row 1 col 1 of matrix rows 5 2 and 1 3?",answer:"5"},{question:"How to refer to row 2 col 3?",answer:"A sub 2 3"}],"matrix-operations":[{question:"Add matrices top-left 3 and 7?",answer:"10"},{question:"Can you add 2x3 to 3x2?",answer:"no"},{question:"For AxB, cols of A must equal what of B?",answer:"rows"},{question:"Row 1 2 dot column 3 4?",answer:"11"},{question:"Size of 2x3 times 3x4?",answer:"2 by 4"},{question:"Is matrix multiplication commutative?",answer:"no"}],"determinant":[{question:"Determinant of 2x2 matrix a b c d?",answer:"ad minus bc"},{question:"Determinant zero means?",answer:"the matrix has no inverse"},{question:"Determinant of matrix rows 1 2 and 3 4?",answer:"-2"},{question:"Determinant of identity matrix?",answer:"1"},{question:"Determinant of matrix rows 4 3 and 2 5?",answer:"14"},{question:"Non-zero determinant, inverse exists?",answer:"yes"}],"inverse-matrix":[{question:"A times its inverse equals?",answer:"identity matrix"},{question:"Determinant of matrix rows 2 1 and 1 1?",answer:"1"},{question:"Zero determinant, find inverse?",answer:"no"},{question:"What entries swap in 2x2 inverse?",answer:"a and d"},{question:"What happens to b and c in inverse formula?",answer:"they are negated"},{question:"Multiply all entries by?",answer:"1 over the determinant"}],"inverse-functions":[{question:"f(3)=7, f-inverse of 7?",answer:"3"},{question:"f(x)=x+3, f-inverse?",answer:"x minus 3"},{question:"f(x)=2x, f-inverse?",answer:"x over 2"},{question:"Graph of inverse reflects across?",answer:"y equals x"},{question:"First step to find inverse algebraically?",answer:"swap x and y"},{question:"Function must be what for inverse to exist?",answer:"one to one"}]};
+useEffect(()=>{setQuestions(null);async function load(){try{const text=await callClaude([{role:"user",content:"Generate exactly 6 practice problems for \""+topic.title+"\". Return ONLY a JSON array: [{\"question\":\"...\",\"answer\":\"...\"}]. Answers: short text or numbers."}]);const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());if(Array.isArray(parsed)&&parsed.length>=4){setQuestions(parsed);return;}throw new Error("bad");}catch(e){setQuestions(FB[topic.id]||FB["addition"]);}}load();},[topic.id]);
+async function submit(){setChecking(true);const q=questions[qIdx];const correct=input.trim().toLowerCase()===q.answer.toString().toLowerCase();let explanation;if(correct){explanation="That's right. Well done.";speakText(explanation);setFeedback({correct,explanation});}else{try{explanation=await callClaude([{role:"user",content:"Ms. Maya, math teacher. Student got wrong.
+Topic: "+topic.title+"
+Q: "+q.question+"
+Correct: "+q.answer+"
+Student: "+input+"
+Explain the correct reasoning. 4-5 sentences. No markdown."}]);}catch{explanation="The correct answer is "+q.answer+". "+q.question+" — the answer is "+q.answer+".";}speakText(explanation);setFeedback({correct,explanation});}setChecking(false);if(correct)setScore(s=>s+1);}
+function next(){const fs=score+(feedback?.correct?1:0);if(qIdx+1>=(questions?.length||6)){onDone(fs);return;}setQIdx(i=>i+1);setInput("");setFeedback(null);}
+if(!questions)return(<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}><PixelCanvas pattern={unitPattern} color={accentColor} size={10} animated/><div style={{color:"#555",fontSize:13}}>Loading practice problems…</div></div>);
+const q=questions[qIdx];
+return(<div style={{flex:1,display:"flex",flexDirection:"column",padding:26,gap:16,overflowY:"auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#444"}}>Practice · {qIdx+1}/{questions.length} · Score: {score}</div><PixelCanvas pattern={unitPattern} color={accentColor} size={6} animated/></div><div style={{background:"#111118",border:"1px solid "+accentColor+"44",borderRadius:11,padding:22}}><div style={{fontSize:18,color:"#eee",lineHeight:1.6}}>{q.question}</div><div style={{fontSize:11,color:"#444",marginTop:8}}>Type your answer and press Enter</div></div><input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!feedback&&input.trim()&&!checking&&submit()} placeholder="Your answer…" autoFocus disabled={!!feedback||checking} style={{background:"#111118",border:"1px solid #2a2a3a",borderRadius:7,padding:"13px 15px",color:"#fff",fontSize:15,outline:"none"}}/>{!feedback&&(<button onClick={submit} disabled={!input.trim()||checking} style={{alignSelf:"flex-start",background:input.trim()&&!checking?accentColor:"#1a1a1a",border:"none",borderRadius:6,padding:"11px 24px",color:input.trim()&&!checking?"#fff":"#333",cursor:input.trim()&&!checking?"pointer":"default",fontSize:14,fontWeight:"bold"}}>{checking?"Checking…":"Check Answer"}</button>)}{feedback&&(<div style={{background:feedback.correct?"#0a1a0a":"#1a0a0a",border:"1px solid "+(feedback.correct?"#2a7a2a":"#7a2a2a"),borderRadius:8,padding:18}}><div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:feedback.correct?"#4ade4a":"#f87171",marginBottom:10}}>{feedback.correct?"✓ Correct!":"✗ Not quite"}</div><div style={{fontSize:14,color:"#ccc",lineHeight:1.75,marginBottom:14}}>{feedback.explanation}</div><button onClick={next} style={{float:"right",background:"transparent",border:"1px solid "+(feedback.correct?"#2a7a2a":"#7a2a2a"),borderRadius:5,padding:"7px 16px",color:feedback.correct?"#4ade4a":"#f87171",cursor:"pointer",fontSize:13}}>{qIdx+1>=questions.length?"Go to Quiz →":"Next Question →"}</button><div style={{clear:"both"}}/></div>)}</div>);}
+
+function FinalQuiz({topic,unitPattern,accentColor,onBack,onComplete}){const[questions,setQuestions]=useState(null);const[answers,setAnswers]=useState({});const[submitted,setSubmitted]=useState(false);const[score,setScore]=useState(0);
+useEffect(()=>{callClaude([{role:"user",content:"Create a 10-question multiple choice quiz on \""+topic.title+"\". Return ONLY a JSON array: [{\"question\":\"...\",\"answer\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"]}]. Answer must match one option exactly."}]).then(text=>{try{setQuestions(JSON.parse(text.replace(/```json|```/g,"").trim()));}catch{setQuestions([{question:"Key idea in "+topic.title+"?",answer:"none",options:["a","b","c","none"]}]);}});},[topic.id]);
+function submit(){let s=0;questions.forEach((q,i)=>{if(answers[i]===q.answer)s++;});setScore(s);setSubmitted(true);onComplete&&onComplete({type:"quiz",score:s,total:questions.length});speakText("You scored "+s+" out of "+questions.length+". "+(s>=8?"Excellent work!":s>=5?"Good effort, keep reviewing.":"Watch the lesson again and try once more."));}
+if(!questions)return(<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}><PixelCanvas pattern={unitPattern} color={accentColor} size={12} animated/><div style={{color:"#555",fontSize:13}}>Building your final quiz…</div></div>);
+if(submitted){const pct=Math.round((score/questions.length)*100);return(<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:32}}><PixelCanvas pattern={unitPattern} color={accentColor} size={14} animated/><div style={{fontSize:46}}>{pct>=80?"🏆":pct>=50?"⭐":"📚"}</div><div style={{fontSize:22,color:"#fff",fontWeight:"bold"}}>Quiz Complete!</div><div style={{fontSize:20,color:accentColor,fontFamily:"monospace"}}>{score}/{questions.length} — {pct}%</div><div style={{fontSize:13,color:"#555",textAlign:"center",maxWidth:260}}>{pct>=80?"You've mastered this topic!":pct>=50?"Good work — re-watch the lesson and try again.":"Watch the lesson again and practice more."}</div><button onClick={onBack} style={{background:accentColor,border:"none",borderRadius:8,padding:"11px 24px",color:"#fff",fontSize:14,cursor:"pointer",marginTop:6}}>Back to Topics</button></div>);}
+const answered=Object.keys(answers).length;
+return(<div style={{flex:1,display:"flex",flexDirection:"column",padding:22,gap:14,overflowY:"auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:accentColor}}>Final Quiz</div><div style={{fontSize:16,color:"#fff",fontWeight:"bold",marginTop:2}}>{topic.title}</div></div><PixelCanvas pattern={unitPattern} color={accentColor} size={7} animated/></div>{questions.map((q,i)=>(<div key={i} style={{background:"#111118",border:"1px solid "+(answers[i]?accentColor+"55":"#1e1e2e"),borderRadius:9,padding:16}}><div style={{fontSize:14,color:"#ddd",marginBottom:11,lineHeight:1.5}}><span style={{color:accentColor,fontWeight:"bold",marginRight:7}}>{i+1}.</span>{q.question}</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>{q.options?.map((opt,j)=>(<button key={j} onClick={()=>setAnswers(a=>({...a,[i]:opt}))} style={{background:answers[i]===opt?accentColor:"#0d0d18",border:"1px solid "+(answers[i]===opt?accentColor:"#2a2a3a"),borderRadius:5,padding:"8px 11px",color:answers[i]===opt?"#fff":"#666",cursor:"pointer",fontSize:13,textAlign:"left",transition:"all 0.15s"}}>{opt}</button>))}</div></div>))}<button onClick={submit} disabled={answered<questions.length} style={{background:answered>=questions.length?accentColor:"#1a1a1a",border:"none",borderRadius:8,padding:"13px",color:answered>=questions.length?"#fff":"#333",fontSize:14,fontWeight:"bold",cursor:answered>=questions.length?"pointer":"default",marginTop:4}}>Submit Quiz ({answered}/{questions.length} answered)</button></div>);}
+
+function TopicView({topic,accentColor,unitName,unitPattern,onBack,onComplete,savedTopicProgress}){const saved=savedTopicProgress?.[topic.id]||{};const[phase,setPhase]=useState("intro");const[slides,setSlides]=useState([]);const[lessonWatched,setLessonWatched]=useState(saved.lessonDone||false);const[practiceScore,setPracticeScore]=useState(saved.practiceDone?(saved.practiceScore||0):null);const[generating,setGenerating]=useState(false);
+useEffect(()=>{if(lessonWatched||practiceScore!==null){onComplete&&onComplete({type:"autosave",lessonWatched,practiceScore});}},[lessonWatched,practiceScore]);
+async function startLesson(){setGenerating(true);try{const text=await callClaude([{role:"user",content:"Write a 5-slide math lesson on \""+topic.title+"\" covering: why it exists, how it works, a worked example, deeper understanding, real world and mistakes. Return ONLY a JSON array: [{\"title\":\"...\",\"content\":\"...\",\"hint\":\"...\",\"narration\":\"...\"}]. Narration: speak naturally 45-60 seconds, numbers in words, don't start with Welcome or Oh."}]);setSlides(JSON.parse(text.replace(/```json|```/g,"").trim()));}catch{setSlides([{title:"Introduction to "+topic.title,content:"This topic is fundamental to understanding mathematics. Every rule exists for a reason, and understanding those reasons leads to real mastery.",hint:"Ask yourself why each rule works, not just what it says.",narration:topic.title+" connects to almost everything else in mathematics. Try to understand why each step is necessary. That understanding will let you reconstruct the method even if you forget the exact procedure."},{title:"Core concept",content:"The central idea can be broken into specific components, each with a clear purpose. Learning each part helps you understand the whole structure.",hint:"Name each part and know what job it does.",narration:"Every piece has a specific job. Understanding each piece separately is much easier than trying to understand everything at once."},{title:"Worked example",content:"Applying the concept to a concrete problem shows how all the pieces work together. We go step by step, explaining every decision.",hint:"Predict each step before it is revealed.",narration:"Here is a full worked example. I will show you every step and explain why. Try to predict what comes next — that active engagement builds real understanding."},{title:"Patterns and connections",content:"Once you understand the mechanics, you can see patterns. Changing one part of a problem in a predictable way changes the answer predictably.",hint:"Change one number at a time and notice what happens.",narration:"Mathematics is full of patterns. When you change certain values, the answer changes in a predictable way. Spotting those patterns is what separates real understanding from just following steps."},{title:"Common mistakes and real life",content:"This concept appears in many real-world situations. Knowing the most frequent mistakes helps you avoid them. Most mistakes come from applying a procedure outside its valid conditions.",hint:"Check: am I using this rule in the right situation?",narration:"The mistake I see most often comes from applying the right procedure in slightly the wrong situation. If you know what the mistake looks like in advance, you will catch yourself before you make it."}]);}setGenerating(false);setPhase("playing");}
+if(generating)return(<div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:20}}><PixelCanvas pattern={unitPattern} color={accentColor} size={12} animated/><div style={{color:"#555",fontSize:13}}>Ms. Maya is preparing your lesson…</div></div>);
+if(phase==="playing")return <VideoPlayer slides={slides} accentColor={accentColor} unitName={unitName} unitPattern={unitPattern} topicId={topic.id} onFinish={async()=>{setLessonWatched(true);setPhase("intro");if(onComplete)onComplete({type:"lesson"});}}/>;
+if(phase==="practice")return <PracticeMode topic={topic} accentColor={accentColor} unitPattern={unitPattern} onDone={async s=>{setPracticeScore(s);setPhase("quiz");if(onComplete)onComplete({type:"practice",score:s});}}/>;
+if(phase==="quiz")return <FinalQuiz topic={topic} unitPattern={unitPattern} accentColor={accentColor} onBack={onBack} onComplete={onComplete}/>;
+return(<div style={{flex:1,overflowY:"auto",padding:26}}><button onClick={()=>{onBack&&onBack();}} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer",fontSize:13,marginBottom:20,padding:0}}>← Back</button><div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22}}><PixelCanvas pattern={unitPattern} color={accentColor} size={9}/><div><div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:accentColor,marginBottom:3}}>{topic.grade}</div><div style={{fontSize:22,fontWeight:"bold",color:"#fff"}}>{topic.title}</div><div style={{fontSize:12,color:"#555",marginTop:2}}>{topic.desc}</div></div></div>{[{step:1,label:"Watch Lesson",sub:"5 slides · Ms. Maya teaches with animations and voice",icon:"▶",unlocked:true,done:lessonWatched,onClick:startLesson},{step:2,label:"Practice Problems",sub:"6 problems · voice feedback"+(practiceScore!==null?" · Score: "+practiceScore+"/6":""),icon:lessonWatched?"✏️":"🔒",unlocked:lessonWatched,done:practiceScore!==null,onClick:()=>setPhase("practice")},{step:3,label:"Final Quiz",sub:"10 multiple choice · unlocks after practice",icon:practiceScore!==null?"🏆":"🔒",unlocked:practiceScore!==null,done:false,onClick:()=>setPhase("quiz")}].map(({step,label,sub,icon,unlocked,done,onClick})=>(<div key={step} onClick={unlocked?onClick:undefined} style={{background:"#111118",border:"2px solid "+(unlocked?accentColor+"44":"#111"),borderRadius:10,padding:"18px 22px",marginBottom:11,cursor:unlocked?"pointer":"not-allowed",opacity:unlocked?1:0.35,transition:"border-color 0.2s"}} onMouseEnter={e=>unlocked&&(e.currentTarget.style.borderColor=accentColor)} onMouseLeave={e=>{e.currentTarget.style.borderColor=unlocked?accentColor+"44":"#111";}}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:40,height:40,borderRadius:"50%",background:unlocked?accentColor:"#222",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{icon}</div><div><div style={{fontSize:14,color:unlocked?"#fff":"#444",fontWeight:"bold"}}>{step}. {label}</div><div style={{fontSize:11,color:"#444",marginTop:2}}>{sub}</div></div>{done&&<div style={{marginLeft:"auto",color:"#4ade4a",fontSize:16}}>✓</div>}</div></div>))}</div>);}
+
+export default function App(){const[selectedTopic,setSelectedTopic]=useState(null);const[selectedUnit,setSelectedUnit]=useState(null);const[sidebarOpen,setSidebarOpen]=useState(true);const[progress,setProgress]=useState(DEFAULT_PROGRESS);const[showDashboard,setShowDashboard]=useState(false);const[newBadges,setNewBadges]=useState([]);const progressRef=useRef(DEFAULT_PROGRESS);const unit=CURRICULUM.find(u=>u.unit===selectedUnit);
+useEffect(()=>{loadProgress().then(p=>{progressRef.current=p;setProgress(p);});const h=()=>saveProgress(progressRef.current);document.addEventListener("visibilitychange",h);window.addEventListener("beforeunload",h);return()=>{document.removeEventListener("visibilitychange",h);window.removeEventListener("beforeunload",h);};},[]);
+async function handleComplete(event){const p={...progressRef.current};const topicId=selectedTopic?.id;const unitName=selectedUnit;if(event.type==="autosave"){if(event.lessonWatched&&topicId)p.topicProgress={...p.topicProgress,[topicId]:{...p.topicProgress?.[topicId],lessonDone:true}};if(event.practiceScore!==null&&topicId)p.topicProgress={...p.topicProgress,[topicId]:{...p.topicProgress?.[topicId],practiceDone:true,practiceScore:event.practiceScore}};progressRef.current=p;saveProgress(p);return;}if(event.type==="lesson"){p.lessonsWatched=(p.lessonsWatched||0)+1;if(topicId)p.topicProgress={...p.topicProgress,[topicId]:{...p.topicProgress?.[topicId],lessonDone:true}};}if(event.type==="practice"){p.practicesDone=(p.practicesDone||0)+1;if(event.score>=5)p.highPractice=(p.highPractice||0)+1;if(topicId)p.topicProgress={...p.topicProgress,[topicId]:{...p.topicProgress?.[topicId],practiceDone:true,practiceScore:event.score}};}if(event.type==="quiz"){p.quizzesDone=(p.quizzesDone||0)+1;if(event.score===event.total)p.perfectQuizzes=(p.perfectQuizzes||0)+1;if(topicId){p.quizScores={...p.quizScores,[topicId]:event.score};p.topicProgress={...p.topicProgress,[topicId]:{...p.topicProgress?.[topicId],quizDone:true,quizScore:event.score}};const already=p.completedTopics||[];if(!already.includes(topicId)){p.completedTopics=[...already,topicId];p.topicStreak=(p.topicStreak||0)+1;}const unitObj=CURRICULUM.find(u=>u.unit===unitName);if(unitObj&&unitObj.topics.every(t=>p.completedTopics.includes(t.id)))p.unitsDone={...p.unitsDone,[unitName]:true};}}const{newBadges:earned,earnedBadges}=checkNewBadges(p);p.earnedBadges=earnedBadges;progressRef.current=p;setProgress({...p});saveProgress(p);if(earned.length>0)setNewBadges(earned);}
+const totalTopics=CURRICULUM.reduce((s,u)=>s+u.topics.length,0);const donePct=Math.round(((progress.completedTopics||[]).length/totalTopics)*100);
+if(selectedTopic&&unit)return(<div style={{height:"100vh",display:"flex",flexDirection:"column",background:"#0d0d14",fontFamily:"'DM Sans',system-ui,sans-serif"}}><div style={{padding:"9px 16px",borderBottom:"1px solid #111",display:"flex",alignItems:"center",gap:9}}><button onClick={()=>{saveProgress(progressRef.current);setSelectedTopic(null);}} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer",fontSize:16}}>←</button><span style={{fontSize:11,color:"#444"}}>{selectedUnit}</span><span style={{color:"#222"}}>/</span><span style={{fontSize:11,color:"#888"}}>{selectedTopic.title}</span><div style={{flex:1}}/><button onClick={()=>setShowDashboard(true)} style={{background:"transparent",border:"1px solid #222",borderRadius:6,padding:"4px 10px",color:"#666",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:5}}><span>🏅</span><span>{(progress.earnedBadges||[]).length}</span></button></div><TopicView topic={selectedTopic} accentColor={unit.color} unitName={unit.unit} unitPattern={unit.pixelArt} onBack={()=>{saveProgress(progressRef.current);setSelectedTopic(null);}} onComplete={handleComplete} savedTopicProgress={progress.topicProgress}/>{showDashboard&&<ProgressDashboard progress={progress} onClose={()=>setShowDashboard(false)}/>}{newBadges.length>0&&<BadgeToast badges={newBadges} onDone={()=>setNewBadges([])}/>}</div>);
+return(<div style={{height:"100vh",display:"flex",fontFamily:"'DM Sans',system-ui,sans-serif",background:"#0d0d14",overflow:"hidden"}}><div style={{width:sidebarOpen?248:52,background:"#09090f",borderRight:"1px solid #111",display:"flex",flexDirection:"column",flexShrink:0,transition:"width 0.2s",overflow:"hidden"}}><div style={{padding:sidebarOpen?"16px 16px 6px":"16px 8px 6px",display:"flex",alignItems:"center",justifyContent:sidebarOpen?"space-between":"center"}}>{sidebarOpen&&<div style={{fontSize:13,fontWeight:"bold",color:"#fff"}}>MathAcademy</div>}<button onClick={()=>setSidebarOpen(o=>!o)} style={{background:"transparent",border:"none",color:"#444",cursor:"pointer",fontSize:14,padding:3}}>{sidebarOpen?"←":"→"}</button></div><div style={{flex:1,overflowY:"auto",padding:"4px 0"}}>{CURRICULUM.map(u=>(<div key={u.unit}><div style={{padding:sidebarOpen?"9px 16px 2px":"9px 6px 2px",fontSize:9,letterSpacing:3,textTransform:"uppercase",color:u.color,display:"flex",alignItems:"center",gap:5}}>{sidebarOpen?<><span>{u.icon}</span><span>{u.unit}</span></>:<PixelCanvas pattern={u.pixelArt} color={u.color} size={4}/>}</div>{u.topics.map(t=>{const complete=(progress.completedTopics||[]).includes(t.id);return(<button key={t.id} onClick={()=>{saveProgress(progressRef.current);setSelectedTopic(t);setSelectedUnit(u.unit);}} style={{width:"100%",background:"transparent",border:"none",padding:sidebarOpen?"6px 16px 6px 26px":"6px 6px",textAlign:"left",cursor:"pointer",color:complete?"#4ade4a":"#555",fontSize:11,display:"flex",alignItems:"center",gap:5,transition:"color 0.15s"}} onMouseEnter={e=>e.currentTarget.style.color=complete?"#7aee7a":"#ddd"} onMouseLeave={e=>{e.currentTarget.style.color=complete?"#4ade4a":"#555";}}>{sidebarOpen?<><span style={{opacity:complete?1:0,fontSize:9}}>✓</span><span>{t.title}</span></>:<span>·</span>}</button>);})}</div>))}</div>{sidebarOpen&&(<div style={{padding:"10px 14px",borderTop:"1px solid #111"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}><span style={{fontSize:10,color:"#444"}}>Progress</span><span style={{fontSize:10,color:"#888"}}>{donePct}%</span></div><div style={{height:4,background:"#1a1a2e",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",background:"linear-gradient(90deg,#f72585,#7b2d8b)",width:donePct+"%",borderRadius:2,transition:"width 0.4s"}}/></div></div>)}</div><div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}><div style={{padding:"12px 20px",borderBottom:"1px solid #111",display:"flex",alignItems:"center",justifyContent:"flex-end",gap:10}}><button onClick={()=>setShowDashboard(true)} style={{background:"#111118",border:"1px solid #1e1e2e",borderRadius:8,padding:"7px 14px",color:"#aaa",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:7}}><span>🏅</span><span>{(progress.earnedBadges||[]).length}/{BADGES.length} badges</span><span style={{color:"#555"}}>·</span><span>📊</span><span>Progress</span></button></div><div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,padding:40}}><div style={{display:"flex",gap:12}}>{CURRICULUM.map(u=><PixelCanvas key={u.unit} pattern={u.pixelArt} color={u.color} size={8} animated/>)}</div><div style={{fontSize:24,fontWeight:"bold",color:"#fff"}}>MathAcademy</div><div style={{background:"#111118",border:"1px solid #1e1e2e",borderRadius:12,padding:"14px 24px",display:"flex",alignItems:"center",gap:16}}><div style={{position:"relative",width:52,height:52}}><svg viewBox="0 0 52 52" style={{transform:"rotate(-90deg)"}}><circle cx="26" cy="26" r="22" fill="none" stroke="#1a1a2e" strokeWidth="5"/><circle cx="26" cy="26" r="22" fill="none" stroke="url(#grad)" strokeWidth="5" strokeLinecap="round" strokeDasharray={String(2*Math.PI*22)} strokeDashoffset={String(2*Math.PI*22*(1-donePct/100))} style={{transition:"stroke-dashoffset 0.5s ease"}}/><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#f72585"/><stop offset="100%" stopColor="#7b2d8b"/></linearGradient></defs></svg><div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:"bold",color:"#fff"}}>{donePct}%</div></div><div><div style={{fontSize:13,color:"#fff",fontWeight:"bold"}}>{(progress.completedTopics||[]).length} of {totalTopics} topics done</div><div style={{fontSize:11,color:"#555",marginTop:3}}>{(progress.earnedBadges||[]).length} badge{(progress.earnedBadges||[]).length!==1?"s":""} earned · {progress.quizzesDone||0} quiz{(progress.quizzesDone||0)!==1?"zes":""} passed</div></div></div><div style={{fontSize:13,color:"#444",textAlign:"center",maxWidth:280,lineHeight:1.8}}>Pick a topic from the sidebar.<br/>Watch · Practice · Quiz.</div></div></div>{showDashboard&&<ProgressDashboard progress={progress} onClose={()=>setShowDashboard(false)}/>}{newBadges.length>0&&<BadgeToast badges={newBadges} onDone={()=>setNewBadges([])}/>}</div>);}
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
